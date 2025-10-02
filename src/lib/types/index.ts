@@ -1,4 +1,5 @@
 import type { StreamError } from '$lib/errors/index.js';
+import type { Result, ResultAsync } from 'neverthrow';
 import type z from 'zod';
 
 type SseStream<Chunk> = {
@@ -13,7 +14,11 @@ type TextStream = {
 
 type Stream<Chunk> = SseStream<Chunk> | TextStream;
 
-type CreateStreamSender = <Chunk>() => {};
+type CreateStreamSender = <Chunk>(stream: Stream<Chunk>) => {
+	stream: ReadableStream<Uint8Array>;
+	append: (chunk: Chunk) => Result<void, StreamError>;
+	close: () => void;
+};
 
 type OnCompleteCallback = (data: {
 	totalChunks: number;
@@ -38,4 +43,4 @@ type CreateStreamConsumer = <Chunk>(
 	stop: () => void;
 };
 
-export type { CreateStreamConsumer, SseStream, TextStream, Stream };
+export type { CreateStreamConsumer, CreateStreamSender, SseStream, TextStream, Stream };

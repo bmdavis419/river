@@ -1,6 +1,6 @@
 {
 	"name": "@davis7dotsh/river",
-	"description": "main repo for river: the tanstack query like experience for consuming streams",
+	"description": "a tanstack query like experience for consuming streams",
 	"version": "0.0.1",
 	"homepage": "https://github.com/bmdavis419/river",
 	"contributors": [
