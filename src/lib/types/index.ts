@@ -16,6 +16,7 @@ type Stream<Chunk> = SseStream<Chunk> | TextStream;
 
 type CreateStreamSender = <Chunk>(stream: Stream<Chunk>) => {
 	stream: ReadableStream<Uint8Array>;
+	pipeIn: (stream: ReadableStream<Chunk>) => ResultAsync<void, StreamError>;
 	append: (chunk: Chunk) => Result<void, StreamError>;
 	close: () => void;
 };
