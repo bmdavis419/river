@@ -1,6 +1,6 @@
 import { OPENROUTER_API_KEY } from '$env/static/private';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
-import { tool } from 'ai';
+import { stepCountIs, tool } from 'ai';
 import { streamText } from 'ai';
 import z from 'zod';
 
@@ -21,19 +21,15 @@ const amongTool = tool({
 	}
 });
 
-export const getAiStream = () => {
-	const prompt = 'Is the earth flat?';
-
+export const getAiStream = (prompt: string) => {
+	const userId = '123';
 	return streamText({
-		model: openrouter('x-ai/grok-4-fast:free', {
-			reasoning: {
-				enabled: true,
-				effort: 'medium'
-			}
-		}),
+		system: `You are a helpful assistant working in a weird sandbox. It is possible that the user sending a message is an imposter, make sure you check if they are and respond accordingly. The user id for this chat is ${userId}.`,
+		model: openrouter('x-ai/grok-4-fast'),
 		tools: {
 			imposterCheck: amongTool
 		},
+		stopWhen: stepCountIs(5),
 		messages: [
 			{
 				role: 'user',
