@@ -15,27 +15,16 @@ type AiSdkRiverAgent<T extends ToolSet> = {
 	// todo: before run guard, resumability pipe
 };
 
-type CustomSseRiverAgent<T> = {
+// everything is SSE fuck you I own it all
+// if u want text, it's going in SSE and you can't fucking stop me
+type CustomRiverAgent<T> = {
 	__defs: {
 		chunkType: T;
 	};
 	type: 'custom';
 	agent: (stream: ReadableStream<T>) => Promise<void>;
-	streamChunkType: 'sse';
 	streamChunkSchema: z.ZodType<T>;
 };
-
-type CustomTextRiverAgent = {
-	__defs: {
-		chunkType: string;
-	};
-	type: 'custom';
-	agent: (stream: ReadableStream<string>) => Promise<void>;
-	streamChunkType: 'text';
-	streamChunkSchema: z.ZodType<string>;
-};
-
-type CustomRiverAgent<T> = CustomSseRiverAgent<T> | CustomTextRiverAgent;
 
 type AnyRiverAgent = AiSdkRiverAgent<any> | CustomRiverAgent<any>;
 
@@ -70,44 +59,19 @@ const createAiSdkRiverAgent: CreateAiSdkRiverAgent = ({ agent }) => {
 	};
 };
 
-type CreateCustomRiverAgent = <T>(
-	args:
-		| {
-				agent: (stream: ReadableStream<T>) => Promise<void>;
-				streamChunkType: 'sse';
-				streamChunkSchema: z.ZodType<T>;
-		  }
-		| {
-				agent: (stream: ReadableStream<string>) => Promise<void>;
-				streamChunkType: 'text';
-				streamChunkSchema: z.ZodType<string>;
-		  }
-) => CustomRiverAgent<T>;
+type CreateCustomRiverAgent = <T>(args: {
+	agent: (stream: ReadableStream<T>) => Promise<void>;
+	streamChunkSchema: z.ZodType<T>;
+}) => CustomRiverAgent<T>;
 
-const createCustomRiverAgent: CreateCustomRiverAgent = ({
-	agent,
-	streamChunkType,
-	streamChunkSchema
-}) => {
-	if (streamChunkType === 'text') {
-		return {
-			agent,
-			streamChunkSchema,
-			streamChunkType: 'text',
-			__defs: {
-				chunkType: Symbol as any
-			},
-			type: 'custom'
-		};
-	}
+const createCustomRiverAgent: CreateCustomRiverAgent = ({ agent, streamChunkSchema }) => {
 	return {
 		agent,
-		streamChunkSchema,
-		streamChunkType: 'sse',
 		__defs: {
 			chunkType: Symbol as any
 		},
-		type: 'custom'
+		type: 'custom',
+		streamChunkSchema
 	};
 };
 
@@ -137,8 +101,7 @@ const myFirstCustomAgent = createCustomRiverAgent({
 	agent: async (stream) => {
 		return;
 	},
-	streamChunkSchema: z.string(),
-	streamChunkType: 'text'
+	streamChunkSchema: z.string()
 });
 
 const mySecondCustomAgent = createCustomRiverAgent({
@@ -147,8 +110,7 @@ const mySecondCustomAgent = createCustomRiverAgent({
 	},
 	streamChunkSchema: z.object({
 		hello: z.string()
-	}),
-	streamChunkType: 'sse'
+	})
 });
 
 const myFirstAiSdkAgent = createAiSdkRiverAgent({
@@ -162,3 +124,6 @@ const myFirstAgentRouter = createAgentRouter({
 		aiSdk: myFirstAiSdkAgent
 	}
 });
+
+myFirstAgentRouter.agents.customOne.__defs.chunkType;
+myFirstAgentRouter.agents.customTwo.__defs.chunkType;
