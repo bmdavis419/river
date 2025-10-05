@@ -123,7 +123,7 @@
 	};
 </script>
 
-<div class="mx-auto max-w-4xl space-y-8 p-6">
+<div class="mx-auto max-w-4xl flex-1 space-y-8 p-6">
 	<div class="mb-8 flex items-center justify-between">
 		<h1 class="text-3xl font-bold text-white">River Demo</h1>
 		<button

@@ -9,8 +9,8 @@
 	<meta name="description" content="the tanstack query like experience for consuming streams" />
 </svelte:head>
 
-<div class="flex min-h-screen w-full flex-col overflow-hidden bg-background font-geist text-text">
-	<div class="flex-1 overflow-auto p-4">
+<div class="flex w-full flex-col bg-background font-geist text-text">
+	<div class="flex-1 overflow-hidden">
 		{@render children()}
 	</div>
 </div>

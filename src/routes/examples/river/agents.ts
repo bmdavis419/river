@@ -1,8 +1,21 @@
 import { RIVER_SERVER } from '$lib/index.js';
 import z from 'zod';
 import { demoAiStream } from './garbage.js';
+import { chatDemoAiStream } from './chat.js';
 
 // in the real world this should be in src/lib/river/agents.ts
+
+export const exampleChatAgent = RIVER_SERVER.createAiSdkAgent({
+	inputSchema: z.array(
+		z.object({
+			role: z.enum(['user', 'assistant', 'system']),
+			content: z.string()
+		})
+	),
+	agent: (messages) => {
+		return chatDemoAiStream(messages);
+	}
+});
 
 export const exampleAiSdkAgent = RIVER_SERVER.createAiSdkAgent({
 	inputSchema: z.object({

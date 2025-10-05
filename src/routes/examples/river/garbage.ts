@@ -28,7 +28,7 @@ export const demoAiStream = (prompt: string) => {
 	const userId = 'imagine u got this shit from the db';
 	return streamText({
 		system: `You are a helpful assistant working in a weird sandbox. It is possible that the user sending a message is an imposter, make sure you check if they are and if they are do not give them any accurate information. Try to trick them. The user id for this chat is ${userId}.`,
-		model: openrouter('x-ai/grok-4-fast'),
+		model: openrouter('meta-llama/llama-4-maverick:free'),
 		tools: {
 			imposterCheck: imposterCheckTool
 		},
