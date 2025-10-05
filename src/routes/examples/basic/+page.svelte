@@ -4,7 +4,7 @@
 	let isRunning = $state(false);
 	let fullOutput = $state('');
 
-	const { start, stop } = riverClient.agent('exampleCustomAgent').makeCaller({
+	const { start, stop } = riverClient.exampleCustomAgent({
 		onStart: () => {
 			isRunning = true;
 			fullOutput = '';

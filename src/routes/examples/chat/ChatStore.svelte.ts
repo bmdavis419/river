@@ -24,7 +24,7 @@ export class ChatStore {
 		$inspect(this.messages);
 	}
 
-	private chatAgentCaller = riverClient.agent('exampleChatAgent').makeCaller({
+	private chatAgentCaller = riverClient.exampleChatAgent({
 		onStart: () => {
 			this.isSending = true;
 			this.messages.push({

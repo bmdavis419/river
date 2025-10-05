@@ -35,10 +35,8 @@
 
 	// THIS IS THE IMPORTANT PART
 	// look from here to the bottom of the script
-	const { start: startExampleAiSdkAgent, stop: stopExampleAiSdkAgent } = riverClient
-		// will fix this to work like TRPC so go to def works in the future
-		.agent('exampleAiSdkAgent')
-		.makeCaller({
+	const { start: startExampleAiSdkAgent, stop: stopExampleAiSdkAgent } =
+		riverClient.exampleAiSdkAgent({
 			onStart: () => {
 				aiSdkStatus = 'running';
 				aiSdkText = '';
@@ -82,9 +80,8 @@
 		stopExampleAiSdkAgent();
 	};
 
-	const { start: startExampleCustomAgent, stop: stopExampleCustomAgent } = riverClient
-		.agent('exampleCustomAgent')
-		.makeCaller({
+	const { start: startExampleCustomAgent, stop: stopExampleCustomAgent } =
+		riverClient.exampleCustomAgent({
 			onStart: () => {
 				customStatus = 'running';
 				customCharacters = [];

@@ -52,7 +52,7 @@ export const riverClient = RIVER_CLIENT.createClientCaller<ExampleRouter>('/exam
 
 ```ts
 // src/routes/+page.svelte
-const { start, stop } = riverClient.agent('exampleAiSdkAgent').makeCaller({
+const { start, stop } = riverClient.exampleAiSdkAgent({
 	onStart: () => {},
 	onChunk: (chunk) => {
 		// type safe AI SDK stream chunk
@@ -100,7 +100,6 @@ _the actual logic and important bits were fully written by me and are good and w
 
 ### THINGS I WANT TO IMPROVE
 
-- instead of function calls on the client, have the TRPC style objects so I can get the good go to definition experience
 - good utility types for grabbing agent input types and agent chunk types on the client from the callers
 
 ### FEATURES I WANT TO ADD
@@ -196,11 +195,11 @@ _full example on `src/routes/examples/river/client.ts`_
 export const riverClient = RIVER_CLIENT.createClientCaller<ExampleRouter>('/examples/river');
 ```
 
-6. `riverClient.agent('AGENT_NAME').makeCaller()`
-   this one is definitely gonna get changed. it works kinda like how trpc does, but instead of object calls it uses function calls. this was easier for an early version, but you loose important stuff like go to definition. the agent isn't called until you call `start()`, can be cancelled with `stop()`, and has life cycle events for everything you might want.
+6. `riverClient.AGENT_NAME()`
+   these work like mutations in trpc. the agent isn't called until you call `start()`, can be cancelled with `stop()`, and has life cycle events for everything you might want.
 
 ```ts
-const { start, stop } = riverClient.agent('exampleCustomAgent').makeCaller({
+const { start, stop } = riverClient.exampleCustomAgent({
 	onStart: () => {},
 	onChunk: (chunk) => {},
 	onComplete: (data) => {},
