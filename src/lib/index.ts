@@ -1,4 +1,5 @@
 // Reexport your entry components here
-export * from './types/index.js';
-export * from './streams/index.js';
-export * from './streams/send.js';
+export * from './river/types.js';
+export * from './river/errors.js';
+export * from './river/server.js';
+export * from './river/client.js';
