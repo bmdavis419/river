@@ -83,19 +83,13 @@ const createCustomRiverAgent: CreateCustomRiverAgent = ({
 };
 
 // AGENT ROUTER
-type AgentRouter = {
-	agents: Record<string, AnyRiverAgent>;
+type AgentRouter = Record<string, AnyRiverAgent>;
+
+type DecoratedAgentRouter<T extends AgentRouter> = {
+	[K in keyof T]: InferRiverAgent<T[K]>;
 };
 
-type DecoratedAgentRouter<T extends AgentRouter['agents']> = {
-	agents: {
-		[K in keyof T]: InferRiverAgent<T[K]>;
-	};
-};
-
-type CreateAgentRouter = <T extends AgentRouter['agents']>(args: {
-	agents: T;
-}) => DecoratedAgentRouter<T>;
+type CreateAgentRouter = <T extends AgentRouter>(args: { agents: T }) => DecoratedAgentRouter<T>;
 
 const createAgentRouter: CreateAgentRouter = ({ agents }) => {
 	return {
@@ -112,7 +106,7 @@ const createAgentRouter: CreateAgentRouter = ({ agents }) => {
 // - agent runner endpoint generator for actually sending the streams
 // - client side caller
 
-type ServerSideAgentRunner = <T extends AgentRouter['agents']>(
+type ServerSideAgentRunner = <T extends AgentRouter>(
 	router: DecoratedAgentRouter<T>
 ) => {
 	runAgent: <K extends keyof T>(
@@ -126,7 +120,7 @@ const createServerSideAgentRunner: ServerSideAgentRunner = (router) => {
 		runAgent: async (agentId, input) => {
 			const encoder = new TextEncoder();
 
-			const agent = router.agents[agentId];
+			const agent = router[agentId];
 
 			if (agent.type === 'ai-sdk') {
 				const { agent: aiSdkAgent } = agent;
@@ -163,7 +157,7 @@ const createServerSideAgentRunner: ServerSideAgentRunner = (router) => {
 	};
 };
 
-type ServerEndpointHandler = <T extends AgentRouter['agents']>(
+type ServerEndpointHandler = <T extends AgentRouter>(
 	router: DecoratedAgentRouter<T>
 ) => { POST: (event: RequestEvent) => Promise<Response> };
 
@@ -175,7 +169,7 @@ const createServerEndpointHandler: ServerEndpointHandler = (router) => {
 
 			const bodySchema = z.object({
 				agentId: z.string(),
-				input: router.agents[body.agentId].inputSchema
+				input: router[body.agentId].inputSchema
 			});
 
 			const bodyResult = bodySchema.safeParse(body);

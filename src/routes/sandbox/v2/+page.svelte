@@ -4,6 +4,7 @@
 
 	const myRiverClientCaller = createRiverClientCaller<MyRiverRouterType>();
 
+	// todo: if i want this to be cleaner, will need a proxy https://github.com/trpc/trpc/blob/main/packages/server/src/unstable-core-do-not-import/createProxy.ts#L63
 	const customAgentCaller = myRiverClientCaller.callAgent('myCustomAgent')({
 		onChunk: (chunk) => {
 			console.log(chunk);

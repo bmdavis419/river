@@ -42,4 +42,4 @@ export const myRiverRouter = createAgentRouter({
 	}
 });
 
-export type MyRiverRouterType = (typeof myRiverRouter)['agents'];
+export type MyRiverRouterType = typeof myRiverRouter;

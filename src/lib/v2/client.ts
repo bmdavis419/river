@@ -17,10 +17,10 @@ type ClientSideCaller<Chunk, Input> = (args: {
 	stop: () => void;
 };
 
-export const createRiverClientCaller = <T extends AgentRouter['agents']>(): {
-	callAgent: <K extends keyof T>(
+export const createRiverClientCaller = <T extends AgentRouter>(): {
+	callAgent<K extends keyof T>(
 		agentId: K
-	) => ClientSideCaller<InferRiverAgentChunkType<T[K]>, InferRiverAgentInputType<T[K]>>;
+	): ClientSideCaller<InferRiverAgentChunkType<T[K]>, InferRiverAgentInputType<T[K]>>;
 } => {
 	return {
 		callAgent: (agentId) => {
