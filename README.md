@@ -1,8 +1,8 @@
 # river
 
-| an experiment by [ben davis](https://davis7.sh) that went WAY too far...
+_an experiment by [ben davis](https://davis7.sh) that went WAY too far..._
 
-_imagine TRPC, but for agents/streams..._
+#### imagine TRPC, but for agents/streams...
 
 - full type safety
 - rpc-like function calling
