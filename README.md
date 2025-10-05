@@ -1,5 +1,7 @@
 ## river
 
+**_THIS IS A LEGACY BRANCH, DO NOT USE_**
+
 a tanstack query like experience for consuming streams
 
 ### local dev
