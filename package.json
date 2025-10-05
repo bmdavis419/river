@@ -12,6 +12,9 @@
 	],
 	"main": "./dist/index.js",
 	"license": "MIT",
+	"publishConfig": {
+		"access": "public"
+	},
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/bmdavis419/river.git"
