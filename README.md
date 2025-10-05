@@ -4,7 +4,13 @@ _an experiment by [ben davis](https://davis7.sh) that went WAY too far..._
 
 ## it's TRPC, but for agents/streams...
 
-this all actually works! try it out in `src/routes/examples` (getting started guide below)
+this all actually works! try it out in this project (`src/routes/examples`) or try it in your own project (full getting started guide below):
+
+```bash
+bun i @davis7dotsh/river-alpha
+```
+
+**this is alpha software, use it at your own risk. api's will change, bugs will be fixed, features will be added, etc...**
 
 1. create the agent:
 
@@ -80,6 +86,10 @@ this project does actually work right now, but it is very early in development a
 3. `bun i`
 4. `bun dev`
 
+## getting started
+
+if you want to try this out, it's now available on npm!
+
 ## project info
 
 ### why make this?
@@ -104,8 +114,6 @@ _the actual logic and important bits were fully written by me and are good and w
 - "waitUntil" support. this pretty much goes hand and hand with stream resumability
 
 ## docs for: `0.0.1`
-
-_this is VERY much alpha software, use it at your own risk. api's will change, bugs will be fixed, features will be added, etc..._
 
 ### core primitives
 
