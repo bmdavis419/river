@@ -1,5 +1,5 @@
 {
-	"name": "@davis7dotsh/river",
+	"name": "@davis7dotsh/river-alpha",
 	"description": "a tanstack query like experience for consuming streams",
 	"version": "0.0.1",
 	"homepage": "https://github.com/bmdavis419/river",
