@@ -9,6 +9,7 @@ this all actually works! try it out in `src/routes/examples` (getting started gu
 1. create the agent:
 
 ```ts
+// src/lib/river/agents.ts
 export const exampleAiSdkAgent = RIVER_SERVER.createAiSdkAgent({
 	inputSchema: z.object({
 		prompt: z.string()
@@ -25,6 +26,7 @@ export const exampleAiSdkAgent = RIVER_SERVER.createAiSdkAgent({
 2. create the router:
 
 ```ts
+// src/lib/river/router.ts
 export const exampleRouter = RIVER_SERVER.createAgentRouter({
 	exampleAiSdkAgent
 });
@@ -35,18 +37,21 @@ export type ExampleRouter = typeof exampleRouter;
 3. create the endpoint:
 
 ```ts
+// src/routes/api/river/+server.ts
 export const { POST } = RIVER_SERVER.createServerEndpointHandler(exampleRouter);
 ```
 
 4. create the client side caller:
 
 ```ts
+// src/lib/river/client.ts
 export const riverClient = RIVER_CLIENT.createClientCaller<ExampleRouter>('/examples/river');
 ```
 
 5. consume the agent:
 
 ```ts
+// src/routes/+page.svelte
 const { start, stop } = riverClient.agent('exampleAiSdkAgent').makeCaller({
 	onStart: () => {},
 	onChunk: (chunk) => {
@@ -174,7 +179,7 @@ export type ExampleRouter = typeof exampleRouter;
 ```
 
 4. `RIVER_SERVER.createServerEndpointHandler`
-   takes in your router and returns a POST when you can just dump in a `+server.ts` file
+   takes in your router and returns a POST that you can just dump in a `+server.ts` file
 
 _full example on `src/routes/examples/river/+server.ts`_
 
