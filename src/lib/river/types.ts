@@ -98,9 +98,16 @@ type ClientSideCaller<Chunk, Input> = (args: {
 	stop: () => void;
 };
 
+type InferClientSideCallerChunkType<T> =
+	T extends ClientSideCaller<infer Chunk, any> ? Chunk : never;
+type InferClientSideCallerInputType<T> =
+	T extends ClientSideCaller<any, infer Input> ? Input : never;
+
 export type {
 	InferRiverAgentChunkType,
 	InferRiverAgentInputType,
+	InferClientSideCallerChunkType,
+	InferClientSideCallerInputType,
 	CreateAiSdkRiverAgent,
 	CreateCustomRiverAgent,
 	CreateAgentRouter,

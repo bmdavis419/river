@@ -1,15 +1,10 @@
-import type { AssistantModelMessage, ModelMessage, SystemModelMessage } from 'ai';
+import type { InferClientSideCallerInputType } from '$lib/index.js';
 import { riverClient } from '../river/client.js';
-import type { InferRiverAgentInputType } from '$lib/index.js';
+
+type AgentInput = InferClientSideCallerInputType<typeof riverClient.exampleChatAgent>;
 
 export class ChatStore {
-	// TODO: should have the ability to grab types easily out of the
-	messages = $state<
-		{
-			role: 'system' | 'user' | 'assistant';
-			content: string;
-		}[]
-	>([
+	messages = $state<AgentInput>([
 		{
 			role: 'assistant',
 			content: 'Hello, how can I help you today?'

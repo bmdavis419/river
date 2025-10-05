@@ -98,10 +98,6 @@ _the actual logic and important bits were fully written by me and are good and w
 - `src/routes/examples/kitchenSink`
 - `src/routes/examples/chat`
 
-### THINGS I WANT TO IMPROVE
-
-- good utility types for grabbing agent input types and agent chunk types on the client from the callers
-
 ### FEATURES I WANT TO ADD
 
 - stream resumability support. need to figure out a good way to dump the stream to a persistent store so we can easily resume later **will require api changes**
