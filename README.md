@@ -103,9 +103,9 @@ _the actual logic and important bits were fully written by me and are good and w
 - stream resumability support. need to figure out a good way to dump the stream to a persistent store so we can easily resume later **will require api changes**
 - "waitUntil" support. this pretty much goes hand and hand with stream resumability
 
-## docs for: `alpha.1`
+## docs for: `0.0.1`
 
-_i will fix the versioning before this actually releases, again DON'T ACTUALLY USE THIS YET_
+_this is VERY much alpha software, use it at your own risk. api's will change, bugs will be fixed, features will be added, etc..._
 
 ### core primitives
 
