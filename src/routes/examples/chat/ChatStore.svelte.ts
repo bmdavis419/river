@@ -1,7 +1,7 @@
-import type { InferClientSideCallerInputType } from '$lib/index.js';
+import type { RiverClientCallerInputType } from '$lib/index.js';
 import { riverClient } from '../river/client.js';
 
-type AgentInput = InferClientSideCallerInputType<typeof riverClient.chatAgent>;
+type AgentInput = RiverClientCallerInputType<typeof riverClient.chatAgent>;
 
 export class ChatStore {
 	messages = $state<AgentInput>([

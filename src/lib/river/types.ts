@@ -98,31 +98,29 @@ type ClientSideCaller<Chunk, Input> = (args: {
 	stop: () => void;
 };
 
-type InferClientSideCallerAiSdkToolSetType<T> =
+type RiverClientCallerAiSdkToolSetType<T extends ClientSideCaller<TextStreamPart<any>, any>> =
 	T extends ClientSideCaller<TextStreamPart<infer Tools>, any> ? Tools : never;
 
-type InferClientSideToolCallInputType<T, K extends string> =
-	T extends Record<string, Tool> ? (T[K] extends Tool<infer Input> ? Input : never) : never;
-type InferClientSideToolCallOutputType<T, K extends string> =
-	T extends Record<string, Tool>
-		? T[K] extends Tool<infer _, infer Output>
-			? Output
-			: never
-		: never;
+type RiverClientCallerToolCallInputType<T extends ToolSet, K extends keyof T> =
+	T[K] extends Tool<infer Input> ? Input : never;
 
-type InferClientSideCallerChunkType<T> =
+type RiverClientCallerToolCallOutputType<T extends ToolSet, K extends keyof T> =
+	T[K] extends Tool<infer _, infer Output> ? Output : never;
+
+type RiverClientCallerChunkType<T extends ClientSideCaller<any, any>> =
 	T extends ClientSideCaller<infer Chunk, any> ? Chunk : never;
-type InferClientSideCallerInputType<T> =
+
+type RiverClientCallerInputType<T extends ClientSideCaller<any, any>> =
 	T extends ClientSideCaller<any, infer Input> ? Input : never;
 
 export type {
 	InferRiverAgentChunkType,
 	InferRiverAgentInputType,
-	InferClientSideCallerChunkType,
-	InferClientSideCallerInputType,
-	InferClientSideCallerAiSdkToolSetType,
-	InferClientSideToolCallInputType,
-	InferClientSideToolCallOutputType,
+	RiverClientCallerChunkType,
+	RiverClientCallerInputType,
+	RiverClientCallerAiSdkToolSetType,
+	RiverClientCallerToolCallInputType,
+	RiverClientCallerToolCallOutputType,
 	CreateAiSdkRiverAgent,
 	CreateCustomRiverAgent,
 	CreateAgentRouter,

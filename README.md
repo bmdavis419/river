@@ -204,4 +204,44 @@ const { start, stop } = riverClient.exampleCustomAgent({
 });
 ```
 
+### helper types
+
+these are a few helper types I made that really help with getting good type safety in your clients. the names are a bit verbose, but at least they're descriptive...
+
+- `RiverClientCallerAiSdkToolSetType<T>` takes in a client caller and returns the full tool set type for that agent
+
+```ts
+type AiSdkAgentToolSet = RiverClientCallerAiSdkToolSetType<typeof riverClient.exampleAiSdkAgent>;
+```
+
+- `RiverClientCallerToolCallInputType<T, K extends string>` takes in a tool set types (can get with the above type) and a tool name and returns the input type for that tool
+
+```ts
+type ImposterToolCallInputType = RiverClientCallerToolCallInputType<
+	AiSdkAgentToolSet,
+	'imposterCheck'
+>;
+```
+
+- `RiverClientCallerToolCallOutputType<T, K extends string>` takes in a tool set types (can get with the above type) and a tool name and returns the output type for that tool
+
+```ts
+type ImposterToolCallOutputType = RiverClientCallerToolCallOutputType<
+	AiSdkAgentToolSet,
+	'imposterCheck'
+>;
+```
+
+- `RiverClientCallerChunkType<T>` takes in a client caller and returns the full chunk type for that agent
+
+```ts
+type AiSdkAgentChunk = RiverClientCallerChunkType<typeof riverClient.exampleAiSdkAgent>;
+```
+
+- `RiverClientCallerInputType<T>` takes in a client caller and returns the full input type for that agent
+
+```ts
+type AiSdkAgentInputType = RiverClientCallerInputType<typeof riverClient.exampleAiSdkAgent>;
+```
+
 if you have feedback or want to contribute, don't hesitate. best place to reach out is on my twitter [@bmdavis419](https://x.com/@bmdavis419)

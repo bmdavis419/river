@@ -1,22 +1,20 @@
 <script lang="ts">
 	import type {
-		InferClientSideCallerAiSdkToolSetType,
-		InferClientSideCallerChunkType,
-		InferClientSideToolCallInputType,
-		InferClientSideToolCallOutputType
+		RiverClientCallerAiSdkToolSetType,
+		RiverClientCallerChunkType,
+		RiverClientCallerToolCallInputType,
+		RiverClientCallerToolCallOutputType
 	} from '$lib/index.js';
 	import { riverClient } from '../river/client.js';
 
 	// these helper types need WAY better names but man they're useful...
-	type AiSdkAgentChunk = InferClientSideCallerChunkType<typeof riverClient.exampleAiSdkAgent>;
-	type AiSdkAgentToolSet = InferClientSideCallerAiSdkToolSetType<
-		typeof riverClient.exampleAiSdkAgent
-	>;
-	type ImposterToolCallInputType = InferClientSideToolCallInputType<
+	type AiSdkAgentChunk = RiverClientCallerChunkType<typeof riverClient.exampleAiSdkAgent>;
+	type AiSdkAgentToolSet = RiverClientCallerAiSdkToolSetType<typeof riverClient.exampleAiSdkAgent>;
+	type ImposterToolCallInputType = RiverClientCallerToolCallInputType<
 		AiSdkAgentToolSet,
 		'imposterCheck'
 	>;
-	type ImposterToolCallOutputType = InferClientSideToolCallOutputType<
+	type ImposterToolCallOutputType = RiverClientCallerToolCallOutputType<
 		AiSdkAgentToolSet,
 		'imposterCheck'
 	>;
