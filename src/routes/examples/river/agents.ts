@@ -2,6 +2,8 @@ import { RIVER_SERVER } from '$lib/index.js';
 import z from 'zod';
 import { demoAiStream } from './garbage.js';
 
+// in the real world this should be in src/lib/river/agents.ts
+
 export const exampleAiSdkAgent = RIVER_SERVER.createAiSdkAgent({
 	inputSchema: z.object({
 		prompt: z.string()

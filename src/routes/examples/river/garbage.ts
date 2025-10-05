@@ -4,6 +4,8 @@ import { stepCountIs, tool } from 'ai';
 import { streamText } from 'ai';
 import z from 'zod';
 
+// in the real world this should be in src/lib/river/garbage.ts
+
 const openrouter = createOpenRouter({
 	apiKey: OPENROUTER_API_KEY
 });

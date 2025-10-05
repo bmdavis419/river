@@ -1,6 +1,5 @@
 <script lang="ts">
-	import { RIVER_CLIENT } from '$lib/index.js';
-	import type { ExampleRouter } from './river/router.js';
+	import { riverClient } from '../river/client.js';
 
 	let aiSdkStatus = $state<'idle' | 'running' | 'complete' | 'error' | 'cancelled'>('idle');
 	let aiSdkText = $state('');
@@ -29,9 +28,9 @@
 	};
 
 	// THIS IS THE IMPORTANT PART
-	const riverClient = RIVER_CLIENT.createClientCaller<ExampleRouter>('/example/river');
-
+	// look from here to the bottom of the script
 	const { start: startExampleAiSdkAgent, stop: stopExampleAiSdkAgent } = riverClient
+		// will fix this to work like TRPC so go to def works in the future
 		.agent('exampleAiSdkAgent')
 		.makeCaller({
 			onStart: () => {
