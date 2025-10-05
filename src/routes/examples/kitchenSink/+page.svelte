@@ -1,13 +1,37 @@
 <script lang="ts">
+	import type {
+		InferClientSideCallerAiSdkToolSetType,
+		InferClientSideCallerChunkType,
+		InferClientSideToolCallInputType,
+		InferClientSideToolCallOutputType
+	} from '$lib/index.js';
 	import { riverClient } from '../river/client.js';
 
-	// a giant vibe coded mess to show how this can actually be used...
+	// these helper types need WAY better names but man they're useful...
+	type AiSdkAgentChunk = InferClientSideCallerChunkType<typeof riverClient.exampleAiSdkAgent>;
+	type AiSdkAgentToolSet = InferClientSideCallerAiSdkToolSetType<
+		typeof riverClient.exampleAiSdkAgent
+	>;
+	type ImposterToolCallInputType = InferClientSideToolCallInputType<
+		AiSdkAgentToolSet,
+		'imposterCheck'
+	>;
+	type ImposterToolCallOutputType = InferClientSideToolCallOutputType<
+		AiSdkAgentToolSet,
+		'imposterCheck'
+	>;
 
 	let aiSdkStatus = $state<'idle' | 'running' | 'complete' | 'error' | 'cancelled'>('idle');
 	let aiSdkText = $state('');
-	let aiSdkToolCalls = $state<any[]>([]);
+	let aiSdkToolCalls = $state<
+		{
+			toolName: 'imposterCheck';
+			input: ImposterToolCallInputType;
+			output: ImposterToolCallOutputType;
+		}[]
+	>([]);
 	let aiSdkError = $state<string | null>(null);
-	let aiSdkRawChunks = $state<any[]>([]);
+	let aiSdkRawChunks = $state<AiSdkAgentChunk[]>([]);
 	let aiSdkWasCancelled = $state(false);
 
 	let customStatus = $state<'idle' | 'running' | 'complete' | 'error' | 'cancelled'>('idle');
@@ -50,9 +74,13 @@
 				aiSdkRawChunks.push(chunk);
 
 				if (chunk.type === 'text-delta') {
-					aiSdkText += (chunk as any).text;
-				} else if (chunk.type === 'tool-call') {
-					aiSdkToolCalls.push(chunk);
+					aiSdkText += chunk.text;
+				} else if (chunk.type === 'tool-result' && !chunk.dynamic) {
+					aiSdkToolCalls.push({
+						toolName: chunk.toolName,
+						input: chunk.input,
+						output: chunk.output
+					});
 				}
 			},
 			onComplete: () => {
@@ -206,8 +234,11 @@
 					<div class="space-y-2">
 						{#each aiSdkToolCalls as toolCall}
 							<div class="rounded bg-neutral-800 p-2 text-sm">
-								<div class="font-medium text-white">{toolCall.toolName}</div>
-								<div class="text-neutral-300">{JSON.stringify(toolCall.args, null, 2)}</div>
+								<div class="mb-1 font-medium text-white">{toolCall.toolName}</div>
+								<div class="mb-1 text-neutral-400">Input:</div>
+								<div class="text-neutral-300">{JSON.stringify(toolCall.input, null, 2)}</div>
+								<div class="mt-1 mb-1 text-neutral-400">Output:</div>
+								<div class="text-neutral-300">{JSON.stringify(toolCall.output, null, 2)}</div>
 							</div>
 						{/each}
 					</div>

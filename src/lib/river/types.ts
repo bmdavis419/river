@@ -1,4 +1,4 @@
-import type { StreamTextResult, TextStreamPart, ToolSet } from 'ai';
+import type { StreamTextResult, TextStreamPart, Tool, ToolSet } from 'ai';
 import z from 'zod';
 import type { RequestEvent } from '@sveltejs/kit';
 import type { RiverError } from './errors.js';
@@ -98,6 +98,18 @@ type ClientSideCaller<Chunk, Input> = (args: {
 	stop: () => void;
 };
 
+type InferClientSideCallerAiSdkToolSetType<T> =
+	T extends ClientSideCaller<TextStreamPart<infer Tools>, any> ? Tools : never;
+
+type InferClientSideToolCallInputType<T, K extends string> =
+	T extends Record<string, Tool> ? (T[K] extends Tool<infer Input> ? Input : never) : never;
+type InferClientSideToolCallOutputType<T, K extends string> =
+	T extends Record<string, Tool>
+		? T[K] extends Tool<infer _, infer Output>
+			? Output
+			: never
+		: never;
+
 type InferClientSideCallerChunkType<T> =
 	T extends ClientSideCaller<infer Chunk, any> ? Chunk : never;
 type InferClientSideCallerInputType<T> =
@@ -108,6 +120,9 @@ export type {
 	InferRiverAgentInputType,
 	InferClientSideCallerChunkType,
 	InferClientSideCallerInputType,
+	InferClientSideCallerAiSdkToolSetType,
+	InferClientSideToolCallInputType,
+	InferClientSideToolCallOutputType,
 	CreateAiSdkRiverAgent,
 	CreateCustomRiverAgent,
 	CreateAgentRouter,
