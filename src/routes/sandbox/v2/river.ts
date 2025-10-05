@@ -36,10 +36,8 @@ const myCustomAgent = createCustomRiverAgent({
 });
 
 export const myRiverRouter = createAgentRouter({
-	agents: {
-		myFirstAgent,
-		myCustomAgent
-	}
+	myFirstAgent,
+	myCustomAgent
 });
 
 export type MyRiverRouterType = typeof myRiverRouter;

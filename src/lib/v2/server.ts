@@ -4,6 +4,7 @@
 import type { StreamTextResult, TextStreamPart, ToolSet } from 'ai';
 import z from 'zod';
 import type { RequestEvent } from '@sveltejs/kit';
+import { RiverError } from './errors.js';
 
 // AGENT DEFINITION
 type AiSdkRiverAgent<T extends ToolSet, I> = {
@@ -89,12 +90,10 @@ type DecoratedAgentRouter<T extends AgentRouter> = {
 	[K in keyof T]: InferRiverAgent<T[K]>;
 };
 
-type CreateAgentRouter = <T extends AgentRouter>(args: { agents: T }) => DecoratedAgentRouter<T>;
+type CreateAgentRouter = <T extends AgentRouter>(agents: T) => DecoratedAgentRouter<T>;
 
-const createAgentRouter: CreateAgentRouter = ({ agents }) => {
-	return {
-		agents
-	} as any; // it's ok, TS can stfu here
+const createAgentRouter: CreateAgentRouter = (agents) => {
+	return agents as any;
 };
 
 // ok so a few notes to self:
@@ -109,15 +108,19 @@ const createAgentRouter: CreateAgentRouter = ({ agents }) => {
 type ServerSideAgentRunner = <T extends AgentRouter>(
 	router: DecoratedAgentRouter<T>
 ) => {
-	runAgent: <K extends keyof T>(
-		agentId: K,
-		input: InferRiverAgentInputType<T[K]>
-	) => Promise<ReadableStream<Uint8Array>>;
+	runAgent: <K extends keyof T>(args: {
+		agentId: K;
+		input: InferRiverAgentInputType<T[K]>;
+		streamController: ReadableStreamDefaultController<Uint8Array>;
+		abortController: AbortController;
+	}) => Promise<void>;
 };
 
 const createServerSideAgentRunner: ServerSideAgentRunner = (router) => {
 	return {
-		runAgent: async (agentId, input) => {
+		runAgent: async (args) => {
+			const { agentId, input, streamController, abortController } = args;
+
 			const encoder = new TextEncoder();
 
 			const agent = router[agentId];
@@ -126,33 +129,30 @@ const createServerSideAgentRunner: ServerSideAgentRunner = (router) => {
 				const { agent: aiSdkAgent } = agent;
 				const { fullStream } = aiSdkAgent(input);
 
-				const sendStream = new ReadableStream<Uint8Array>({
-					async start(controller) {
-						for await (const chunk of fullStream) {
-							const sseChunk = `data: ${JSON.stringify(chunk)}\n\n`;
-							controller.enqueue(encoder.encode(sseChunk));
-						}
-
-						controller.close();
+				for await (const chunk of fullStream) {
+					if (abortController.signal.aborted) {
+						break;
 					}
-				});
 
-				return sendStream;
+					const sseChunk = `data: ${JSON.stringify(chunk)}\n\n`;
+					streamController.enqueue(encoder.encode(sseChunk));
+				}
+
+				return;
 			}
 
 			const { agent: customAgent } = agent;
 
-			const stream = new ReadableStream<Uint8Array>({
-				async start(controller) {
-					await customAgent(input, (chunk) => {
-						const sseChunk = `data: ${JSON.stringify(chunk)}\n\n`;
-						controller.enqueue(encoder.encode(sseChunk));
-					});
-					controller.close();
+			await customAgent(input, (chunk) => {
+				if (abortController.signal.aborted) {
+					return;
 				}
+
+				const sseChunk = `data: ${JSON.stringify(chunk)}\n\n`;
+				streamController.enqueue(encoder.encode(sseChunk));
 			});
 
-			return stream;
+			return;
 		}
 	};
 };
@@ -166,6 +166,15 @@ const createServerEndpointHandler: ServerEndpointHandler = (router) => {
 	return {
 		POST: async (event) => {
 			const body = await event.request.json();
+			const abortController = new AbortController();
+
+			event.request.signal.addEventListener(
+				'abort',
+				() => {
+					abortController.abort();
+				},
+				{ once: true }
+			);
 
 			const bodySchema = z.object({
 				agentId: z.string(),
@@ -174,11 +183,34 @@ const createServerEndpointHandler: ServerEndpointHandler = (router) => {
 
 			const bodyResult = bodySchema.safeParse(body);
 			if (!bodyResult.success) {
-				console.error(bodyResult.error);
-				return new Response('Invalid body', { status: 400 });
+				const error = new RiverError('Invalid body', bodyResult.error);
+				return new Response(JSON.stringify(error), { status: 400 });
 			}
 
-			const stream = await runner.runAgent(bodyResult.data.agentId, bodyResult.data.input);
+			const stream = new ReadableStream<Uint8Array>({
+				async start(streamController) {
+					// TODO: make it so that you can do some wait until and piping shit in here
+					try {
+						await runner.runAgent({
+							agentId: bodyResult.data.agentId,
+							input: bodyResult.data.input,
+							streamController,
+							abortController
+						});
+					} catch (error) {
+						if (abortController.signal.aborted) {
+							streamController.close();
+						} else {
+							streamController.error(error);
+						}
+					} finally {
+						streamController.close();
+					}
+				},
+				cancel(reason) {
+					abortController.abort(reason);
+				}
+			});
 
 			return new Response(stream);
 		}

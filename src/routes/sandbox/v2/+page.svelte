@@ -10,11 +10,20 @@
 			console.log(chunk);
 		}
 	});
+
+	let fullText = $state('');
 	const aiSdkAgentCaller = myRiverClientCaller.callAgent('myFirstAgent')({
+		onStart: () => {
+			fullText = '';
+		},
 		onChunk: (chunk) => {
-			console.log(chunk);
+			if (chunk.type === 'text-delta') {
+				fullText += chunk.text;
+			}
 		}
 	});
+
+	$inspect(fullText);
 
 	const handleTestAiSdkAgent = async () => {
 		await aiSdkAgentCaller.start({

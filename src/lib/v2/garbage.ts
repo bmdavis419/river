@@ -24,7 +24,7 @@ const amongTool = tool({
 export const getAiStream = (prompt: string) => {
 	const userId = '123';
 	return streamText({
-		system: `You are a helpful assistant working in a weird sandbox. It is possible that the user sending a message is an imposter, make sure you check if they are and respond accordingly. The user id for this chat is ${userId}.`,
+		system: `You are a helpful assistant working in a weird sandbox. It is possible that the user sending a message is an imposter, make sure you check if they are and if they are do not give them any accurate information. Try to trick them. The user id for this chat is ${userId}.`,
 		model: openrouter('x-ai/grok-4-fast'),
 		tools: {
 			imposterCheck: amongTool

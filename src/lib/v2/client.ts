@@ -1,9 +1,11 @@
 // ok in here we need to make the client side caller
 
+import { ResultAsync } from 'neverthrow';
+import { RiverError } from './errors.js';
 import type { AgentRouter, InferRiverAgentChunkType, InferRiverAgentInputType } from './server.js';
 
 type OnCompleteCallback = (data: { totalChunks: number; duration: number }) => void | Promise<void>;
-type OnErrorCallback = (error: unknown) => void | Promise<void>;
+type OnErrorCallback = (error: RiverError) => void | Promise<void>;
 type OnChunkCallback<Chunk> = (chunk: Chunk, index: number) => void | Promise<void>;
 type OnStartCallback = () => void | Promise<void>;
 
@@ -27,6 +29,8 @@ export const createRiverClientCaller = <T extends AgentRouter>(): {
 			return (stuffs) => {
 				const { onComplete, onError, onChunk, onStart } = stuffs;
 
+				const abortController = new AbortController();
+
 				type Input = InferRiverAgentInputType<T[keyof T]>;
 
 				const internalCallAgent = async (input: Input) => {
@@ -40,23 +44,35 @@ export const createRiverClientCaller = <T extends AgentRouter>(): {
 						});
 					};
 
-					const response = await fetch('/sandbox/v2', {
-						method: 'POST',
-						body: JSON.stringify({
-							agentId,
-							input
-						})
-					});
+					const response = await ResultAsync.fromPromise(
+						fetch('/sandbox/v2', {
+							method: 'POST',
+							body: JSON.stringify({
+								agentId,
+								input
+							}),
+							signal: abortController.signal
+						}),
+						(error) => {
+							return new RiverError('Failed to call agent', error);
+						}
+					);
 
-					if (!response.ok) {
-						await onError?.(new Error('Failed to call agent'));
+					if (response.isErr()) {
+						await onError?.(response.error);
 						await handleFinish();
 						return;
 					}
 
-					const reader = response.body?.getReader();
+					if (!response.value.ok) {
+						await onError?.(new RiverError('Failed to call agent', response.value));
+						await handleFinish();
+						return;
+					}
+
+					const reader = response.value.body?.getReader();
 					if (!reader) {
-						await onError?.(new Error('Failed to get reader'));
+						await onError?.(new RiverError('Failed to get reader', true));
 						await handleFinish();
 						return;
 					}
@@ -67,9 +83,17 @@ export const createRiverClientCaller = <T extends AgentRouter>(): {
 					let buffer = '';
 
 					while (!done) {
-						const readResult = await reader.read();
+						const readResult = await ResultAsync.fromPromise(reader.read(), (error) => {
+							return new RiverError('Failed to read stream', error);
+						});
 
-						const { value, done: streamDone } = readResult;
+						if (readResult.isErr()) {
+							await onError?.(readResult.error);
+							done = true;
+							continue;
+						}
+
+						const { value, done: streamDone } = readResult.value;
 						done = streamDone;
 
 						if (!value) continue;
@@ -106,7 +130,7 @@ export const createRiverClientCaller = <T extends AgentRouter>(): {
 						internalCallAgent(input);
 					},
 					stop: () => {
-						console.log('stop');
+						abortController.abort();
 					}
 				};
 			};
