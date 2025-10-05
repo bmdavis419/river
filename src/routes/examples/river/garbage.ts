@@ -33,11 +33,6 @@ export const demoAiStream = (prompt: string) => {
 			imposterCheck: imposterCheckTool
 		},
 		stopWhen: stepCountIs(5),
-		messages: [
-			{
-				role: 'user',
-				content: prompt
-			}
-		]
+		prompt
 	});
 };

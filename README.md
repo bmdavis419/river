@@ -2,7 +2,63 @@
 
 _an experiment by [ben davis](https://davis7.sh) that went WAY too far..._
 
-#### imagine TRPC, but for agents/streams...
+## it's TRPC, but for agents/streams...
+
+this all actually works! try it out in `src/routes/examples` (getting started guide below)
+
+1. create the agent:
+
+```ts
+export const exampleAiSdkAgent = RIVER_SERVER.createAiSdkAgent({
+	inputSchema: z.object({
+		prompt: z.string()
+	}),
+	agent: ({ prompt }) => {
+		return streamText({
+			model: openai('gpt-5-mini'),
+			prompt
+		});
+	}
+});
+```
+
+2. create the router:
+
+```ts
+export const exampleRouter = RIVER_SERVER.createAgentRouter({
+	exampleAiSdkAgent
+});
+
+export type ExampleRouter = typeof exampleRouter;
+```
+
+3. create the endpoint:
+
+```ts
+export const { POST } = RIVER_SERVER.createServerEndpointHandler(exampleRouter);
+```
+
+4. create the client side caller:
+
+```ts
+export const riverClient = RIVER_CLIENT.createClientCaller<ExampleRouter>('/examples/river');
+```
+
+5. consume the agent:
+
+```ts
+const { start, stop } = riverClient.agent('exampleAiSdkAgent').makeCaller({
+	onStart: () => {},
+	onChunk: (chunk) => {
+		// type safe AI SDK stream chunk
+	},
+	onComplete: (data) => {},
+	onError: (error) => {},
+	onCancel: () => {}
+});
+```
+
+## what you get
 
 - full type safety
 - rpc-like function calling
@@ -10,7 +66,7 @@ _an experiment by [ben davis](https://davis7.sh) that went WAY too far..._
 - ai sdk streaming support **with full stack type safety**
 - custom stream support **with zod validation on chunks**
 
-This project does actually work right now, but it is very early in development and NOT recommended for production use. **It is in alpha, the apis will change a lot...**
+this project does actually work right now, but it is very early in development and NOT recommended for production use. **it is in alpha, the apis will change a lot...**
 
 ## local dev setup
 
@@ -147,3 +203,5 @@ const { start, stop } = riverClient.agent('exampleCustomAgent').makeCaller({
 	onCancel: () => {}
 });
 ```
+
+if you have feedback or want to contribute, don't hesitate. best place to reach out is on my twitter [@bmdavis419](https://x.com/@bmdavis419)
