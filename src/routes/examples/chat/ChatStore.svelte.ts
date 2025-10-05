@@ -1,7 +1,7 @@
 import type { InferClientSideCallerInputType } from '$lib/index.js';
 import { riverClient } from '../river/client.js';
 
-type AgentInput = InferClientSideCallerInputType<typeof riverClient.exampleChatAgent>;
+type AgentInput = InferClientSideCallerInputType<typeof riverClient.chatAgent>;
 
 export class ChatStore {
 	messages = $state<AgentInput>([
@@ -19,7 +19,7 @@ export class ChatStore {
 		$inspect(this.messages);
 	}
 
-	private chatAgentCaller = riverClient.exampleChatAgent({
+	private chatAgentCaller = riverClient.chatAgent({
 		onStart: () => {
 			this.isSending = true;
 			this.messages.push({

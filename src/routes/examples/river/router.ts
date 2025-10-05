@@ -6,7 +6,8 @@ import { exampleAiSdkAgent, exampleChatAgent, exampleCustomAgent } from './agent
 export const exampleRouter = RIVER_SERVER.createAgentRouter({
 	exampleAiSdkAgent,
 	exampleCustomAgent,
-	exampleChatAgent
+	// gives better go to definition experience
+	chatAgent: exampleChatAgent
 });
 
 export type ExampleRouter = typeof exampleRouter;
