@@ -3,20 +3,22 @@
 	"description": "a tanstack query like experience for consuming streams",
 	"version": "0.0.1",
 	"homepage": "https://github.com/bmdavis419/river",
+	"author": "Ben Davis (https://davis7.sh)",
 	"contributors": [
 		{
 			"name": "Ben Davis",
 			"url": "https://davis7.sh"
 		}
 	],
-	"main": "index.js",
+	"main": "./dist/index.js",
+	"license": "MIT",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/bmdavis419/river"
+		"url": "git+https://github.com/bmdavis419/river.git"
 	},
 	"scripts": {
 		"dev": "vite dev",
-		"build": "vite build && npm run prepack",
+		"build": "vite build && bun run prepack",
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",
 		"prepack": "svelte-kit sync && svelte-package && publint",
