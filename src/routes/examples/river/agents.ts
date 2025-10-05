@@ -23,10 +23,12 @@ export const exampleCustomAgent = RIVER_SERVER.createCustomAgent({
 	}),
 	agent: async ({ yourName }, append) => {
 		const characters = yourName.split('');
+		let index = 0;
 		for (const character of characters) {
 			// yea i vibe coded this regex fight me
 			if (/^[a-zA-Z]$/.test(character)) {
-				append({ character, index: characters.indexOf(character) });
+				append({ character, index });
+				index++;
 				await new Promise((resolve) => setTimeout(resolve, 50));
 			}
 		}

@@ -30,7 +30,6 @@ const createClientCaller = <T extends AgentRouter>(
 					const internalCallAgent = async (input: Input, abortController: AbortController) => {
 						let totalChunks = 0;
 						const startTime = Date.now();
-						let didCancel = false;
 
 						const handleFinish = async () => {
 							await onComplete?.({
@@ -85,7 +84,6 @@ const createClientCaller = <T extends AgentRouter>(
 							if (readResult.isErr()) {
 								if (abortController.signal.aborted) {
 									await onCancel?.();
-									didCancel = true;
 									done = true;
 									continue;
 								}
@@ -122,9 +120,7 @@ const createClientCaller = <T extends AgentRouter>(
 							}
 						}
 
-						if (!didCancel) {
-							await handleFinish();
-						}
+						await handleFinish();
 					};
 
 					return {

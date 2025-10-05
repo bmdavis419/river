@@ -1,16 +1,20 @@
 <script lang="ts">
 	import { riverClient } from '../river/client.js';
 
+	// a giant vibe coded mess to show how this can actually be used...
+
 	let aiSdkStatus = $state<'idle' | 'running' | 'complete' | 'error' | 'cancelled'>('idle');
 	let aiSdkText = $state('');
 	let aiSdkToolCalls = $state<any[]>([]);
 	let aiSdkError = $state<string | null>(null);
 	let aiSdkRawChunks = $state<any[]>([]);
+	let aiSdkWasCancelled = $state(false);
 
 	let customStatus = $state<'idle' | 'running' | 'complete' | 'error' | 'cancelled'>('idle');
 	let customCharacters = $state<{ character: string; index: number }[]>([]);
 	let customStats = $state<{ totalChunks: number; duration: number } | null>(null);
 	let customError = $state<string | null>(null);
+	let customWasCancelled = $state(false);
 
 	const customText = $derived(customCharacters.map((c) => c.character).join(''));
 
@@ -20,11 +24,13 @@
 		aiSdkToolCalls = [];
 		aiSdkError = null;
 		aiSdkRawChunks = [];
+		aiSdkWasCancelled = false;
 
 		customStatus = 'idle';
 		customCharacters = [];
 		customStats = null;
 		customError = null;
+		customWasCancelled = false;
 	};
 
 	// THIS IS THE IMPORTANT PART
@@ -39,6 +45,7 @@
 				aiSdkToolCalls = [];
 				aiSdkError = null;
 				aiSdkRawChunks = [];
+				aiSdkWasCancelled = false;
 			},
 			onChunk: (chunk) => {
 				console.log('AI SDK chunk:', chunk);
@@ -51,13 +58,16 @@
 				}
 			},
 			onComplete: () => {
-				aiSdkStatus = 'complete';
+				if (!aiSdkWasCancelled) {
+					aiSdkStatus = 'complete';
+				}
 			},
 			onError: (error) => {
 				aiSdkStatus = 'error';
 				aiSdkError = error.message || 'Unknown error';
 			},
 			onCancel: () => {
+				aiSdkWasCancelled = true;
 				aiSdkStatus = 'cancelled';
 			}
 		});
@@ -80,19 +90,23 @@
 				customCharacters = [];
 				customStats = null;
 				customError = null;
+				customWasCancelled = false;
 			},
 			onChunk: (chunk) => {
 				customCharacters.push(chunk);
 			},
 			onComplete: ({ totalChunks, duration }) => {
-				customStatus = 'complete';
-				customStats = { totalChunks, duration };
+				if (!customWasCancelled) {
+					customStatus = 'complete';
+					customStats = { totalChunks, duration };
+				}
 			},
 			onError: (error) => {
 				customStatus = 'error';
 				customError = error.message || 'Unknown error';
 			},
 			onCancel: () => {
+				customWasCancelled = true;
 				customStatus = 'cancelled';
 			}
 		});
