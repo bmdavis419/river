@@ -134,12 +134,12 @@ const createServerEndpointHandler: ServerEndpointHandler = (router, hooks) => {
 						}
 					} finally {
 						streamController.close();
-						await hooks?.afterAgentRun?.({ event, agentId, input });
+						await safeCall(hooks?.afterAgentRun, { event, agentId, input });
 					}
 				},
 				cancel(reason) {
 					abortController.abort(reason);
-					hooks?.onAbort?.({ event, agentId, input, reason });
+					safeCall(hooks?.onAbort, { event, agentId, input, reason });
 				}
 			});
 

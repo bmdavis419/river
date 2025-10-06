@@ -114,7 +114,7 @@ export type LifecycleHooks<T extends AgentRouter> = {
 	onAbort?:
 		| HookWithError<{
 				event: RequestEvent;
-				agentId: T;
+				agentId: keyof T;
 				input: InferRiverAgentInputType<T[keyof T]>;
 				reason?: unknown;
 		  }>
