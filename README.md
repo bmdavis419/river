@@ -1,6 +1,6 @@
 # river
 
-_an experiment by [ben davis](https://davis7.sh) that went WAY too far..._
+_an experiment by <a href="https://davis7.sh" target="_blank">ben davis</a> that went WAY too far..._
 
 ## it's TRPC, but for agents/streams...
 
@@ -56,7 +56,7 @@ this project does actually work right now, but it is very early in development a
 
 if you want to try this out, it's now available on npm!
 
-I've built out two examples, one using the ai-sdk and one using a custom stream. both are fully type safe and work great. You can find them [here](https://github.com/bmdavis419/river-examples)
+I've built out two examples, one using the ai-sdk and one using a custom stream. both are fully type safe and work great. You can find them <a href="https://github.com/bmdavis419/river-examples" target="_blank">here</a>
 
 **here's a quick getting started guide for custom streams**
 
@@ -66,7 +66,7 @@ I've built out two examples, one using the ai-sdk and one using a custom stream.
 bun i @davis7dotsh/river-alpha zod
 ```
 
-2. setup your first agent (this looks slightly different for the [ai-sdk agents](https://github.com/bmdavis419/river-examples/blob/main/basic-aisdk-example/src/lib/river/agents.ts))
+2. setup your first agent (this looks slightly different for the <a href="https://github.com/bmdavis419/river-examples/blob/main/basic-aisdk-example/src/lib/river/agents.ts" target="_blank">ai-sdk agents</a>)
 
 ```ts
 // src/lib/river/agents.ts
@@ -212,47 +212,34 @@ _see the examples for more detailed usage, these api's will change..._
 
 1. **agents**: these come in two flavors, `AiSdkAgent` and `CustomAgent`. The ai-sdk agent is for when you want to use the `streamText` function from the `ai` package. The custom agent is for when you want to do custom stuff and just need a type safe stream (validated with zod)
 2. **agent router**: the is the thing you create on the server which will allow you to call agents. VERY similar to a TRPC router.
-3. **agent caller**: this is the client side primitive for actually calling agents. It's fully type safe (grabs types from the router) and feels like react query.
+3. **agent client**: this is the client side primitive for actually calling agents. It's fully type safe (grabs types from the router) and feels like the trpc client.
 4. **endpoint handler**: this is something you will basically never touch. it's just a function that returns a POST handler for actually processing your requests
 
 ### helper types
 
 these are a few helper types I made that really help with getting good type safety in your clients. the names are a bit verbose, but at least they're descriptive...
 
-- takes in a client caller and returns the full tool set type for that agent
-
 ```ts
+// gets the "tool set" type (a record of tool names to their tool types) for an ai-sdk agent
 type AiSdkAgentToolSet = RiverClientCallerAiSdkToolSetType<typeof riverClient.exampleAiSdkAgent>;
-```
 
-- takes in a tool set types (can get with the above type) and a tool name and returns the input type for that tool
-
-```ts
+// gets the input type for a tool call for an ai-sdk agent. pass in the tool set type and the tool name
 type ImposterToolCallInputType = RiverClientCallerToolCallInputType<
 	AiSdkAgentToolSet,
 	'imposterCheck'
 >;
-```
 
-- takes in a tool set types (can get with the above type) and a tool name and returns the output type for that tool
-
-```ts
+// gets the output type for a tool call for an ai-sdk agent. pass in the tool set type and the tool name
 type ImposterToolCallOutputType = RiverClientCallerToolCallOutputType<
 	AiSdkAgentToolSet,
 	'imposterCheck'
 >;
-```
 
-- takes in a client caller and returns the full chunk type for that agent
-
-```ts
+// gets the chunk type for an agent (the thing passed to the onChunk callback)
 type AiSdkAgentChunk = RiverClientCallerChunkType<typeof riverClient.exampleAiSdkAgent>;
-```
 
-- takes in a client caller and returns the full input type for that agent
-
-```ts
+// gets the input type for an agent (the thing passed to the start function)
 type AiSdkAgentInputType = RiverClientCallerInputType<typeof riverClient.exampleAiSdkAgent>;
 ```
 
-if you have feedback or want to contribute, don't hesitate. best place to reach out is on my twitter [@bmdavis419](https://x.com/@bmdavis419)
+if you have feedback or want to contribute, don't hesitate. best place to reach out is on my twitter <a href="https://x.com/@bmdavis419" target="_blank">@bmdavis419</a>
