@@ -78,7 +78,7 @@ type ServerSideAgentRunner = <T extends AgentRouter>(
 
 type ServerEndpointHandler = <T extends AgentRouter>(
 	router: DecoratedAgentRouter<T>,
-	hooks: LifecycleHooks<T>
+	hooks?: LifecycleHooks<T>
 ) => { POST: (event: RequestEvent) => Promise<Response> };
 
 type LifecycleHooks<T extends AgentRouter> = {

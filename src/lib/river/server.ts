@@ -115,6 +115,11 @@ const createServerEndpointHandler: ServerEndpointHandler = (router, hooks) => {
 							streamController.close();
 						} else {
 							streamController.error(error);
+							const riverErr =
+								error instanceof RiverError
+									? error
+									: new RiverError(`[RIVER:${agentId}] - Run Failed`, error);
+							await hooks?.onError?.({ event, agentId, input, error: riverErr });
 						}
 					} finally {
 						streamController.close();
