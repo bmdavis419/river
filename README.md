@@ -4,70 +4,36 @@ _an experiment by [ben davis](https://davis7.sh) that went WAY too far..._
 
 ## it's TRPC, but for agents/streams...
 
-this all actually works! try it out in this project (`src/routes/examples`) or try it in your own project (full getting started guide below):
+```svelte
+<script lang="ts">
+	import { myRiverClient } from '$lib/river/client';
+
+	// ALL of this is type safe, feels just like TRPC
+	const { start, stop } = myRiverClient.basicExample({
+		onStart: () => {
+			console.log('Starting basic example');
+		},
+		onChunk: (chunk) => {
+			// full type safety on the chunks
+		},
+		onCancel: () => {
+			console.log('You cancelled the basic example');
+		},
+		onError: (error) => {
+			console.error('Error in basic example', error);
+		},
+		onComplete: ({ totalChunks, duration }) => {
+			console.log(`Basic example completed in ${duration}ms with ${totalChunks} chunks`);
+		}
+	});
+</script>
+```
 
 ```bash
 bun i @davis7dotsh/river-alpha
 ```
 
 **this is alpha software, use it at your own risk. api's will change, bugs will be fixed, features will be added, etc...**
-
-1. create the agent:
-
-```ts
-// src/lib/river/agents.ts
-export const exampleAiSdkAgent = RIVER_SERVER.createAiSdkAgent({
-	inputSchema: z.object({
-		prompt: z.string()
-	}),
-	agent: ({ prompt }) => {
-		return streamText({
-			model: openai('gpt-5-mini'),
-			prompt
-		});
-	}
-});
-```
-
-2. create the router:
-
-```ts
-// src/lib/river/router.ts
-export const exampleRouter = RIVER_SERVER.createAgentRouter({
-	exampleAiSdkAgent
-});
-
-export type ExampleRouter = typeof exampleRouter;
-```
-
-3. create the endpoint:
-
-```ts
-// src/routes/api/river/+server.ts
-export const { POST } = RIVER_SERVER.createServerEndpointHandler(exampleRouter);
-```
-
-4. create the client side caller:
-
-```ts
-// src/lib/river/client.ts
-export const riverClient = RIVER_CLIENT.createClientCaller<ExampleRouter>('/examples/river');
-```
-
-5. consume the agent:
-
-```ts
-// src/routes/+page.svelte
-const { start, stop } = riverClient.exampleAiSdkAgent({
-	onStart: () => {},
-	onChunk: (chunk) => {
-		// type safe AI SDK stream chunk
-	},
-	onComplete: (data) => {},
-	onError: (error) => {},
-	onCancel: () => {}
-});
-```
 
 ## what you get
 
@@ -79,16 +45,146 @@ const { start, stop } = riverClient.exampleAiSdkAgent({
 
 this project does actually work right now, but it is very early in development and NOT recommended for production use. **it is in alpha, the apis will change a lot...**
 
-## local dev setup
+## local package dev setup
 
 1. get an openrouter api key
 2. add it to your `.env.local` file (see `.env.example`)
 3. `bun i`
 4. `bun dev`
 
-## getting started
+## getting started using the package
 
 if you want to try this out, it's now available on npm!
+
+I've built out two examples, one using the ai-sdk and one using a custom stream. both are fully type safe and work great. You can find them [here](https://github.com/bmdavis419/river-examples)
+
+**here's a quick getting started guide for custom streams**
+
+1. install dependencies
+
+```bash
+bun i @davis7dotsh/river-alpha zod
+```
+
+2. setup your first agent (this looks slightly different for the [ai-sdk agents](https://github.com/bmdavis419/river-examples/blob/main/basic-aisdk-example/src/lib/river/agents.ts))
+
+```ts
+// src/lib/river/agents.ts
+import { RIVER_SERVER } from '@davis7dotsh/river-alpha';
+import { z } from 'zod';
+
+export const basicExampleAgent = RIVER_SERVER.createCustomAgent({
+	inputSchema: z.object({
+		message: z.string()
+	}),
+	streamChunkSchema: z.object({
+		letter: z.string(),
+		isVowel: z.boolean()
+	}),
+	// a stream will automatically be created for you when you call this agent
+	// first param is the input, second param is a function to append chunks to the stream
+	// the stream will close when the agent returns
+	agent: async ({ message }, appendChunk) => {
+		const letters = message.split('');
+		const onlyLetters = letters.filter((letter) => /^[a-zA-Z]$/.test(letter));
+		for (let i = 0; i < onlyLetters.length; i++) {
+			const letter = onlyLetters[i];
+			const isVowel = /^[aeiou]$/i.test(letter);
+			appendChunk({ letter, isVowel });
+			await new Promise((resolve) => setTimeout(resolve, 20));
+		}
+	}
+});
+```
+
+3. setup your router
+
+```ts
+// src/lib/river/router.ts
+import { RIVER_SERVER } from '@davis7dotsh/river-alpha';
+import { basicExampleAgent } from './agents';
+
+export const myRiverRouter = RIVER_SERVER.createAgentRouter({
+	// I recommend having the key not be the name of the agent, this will make the go to definition experience much better
+	basicExample: basicExampleAgent
+});
+
+// this is to get type inference on the client
+export type MyRiverRouter = typeof myRiverRouter;
+```
+
+4. setup the endpoint
+
+```ts
+// src/routes/api/river/+server.ts
+import { myRiverRouter } from '$lib/river/router';
+import { RIVER_SERVER } from '@davis7dotsh/river-alpha';
+
+// this is all it takes, nothing else needed
+// NOTE: this is sveltekit specific, more frameworks coming eventually...
+export const { POST } = RIVER_SERVER.createServerEndpointHandler(myRiverRouter);
+```
+
+5. setup the client
+
+```ts
+// src/lib/river/client.ts
+import { RIVER_CLIENT } from '@davis7dotsh/river-alpha';
+import type { MyRiverRouter } from './router';
+
+// similar to a trpc client, this is how we call the agents from the client
+export const myRiverClient = RIVER_CLIENT.createClientCaller<MyRiverRouter>('/api/river');
+```
+
+6. use your agent on the client with a client side caller
+
+```svelte
+<!-- src/routes/+page.svelte -->
+<script lang="ts">
+	import { myRiverClient } from '$lib/river/client';
+
+	// this works just like mutations in trpc, it will not actually run until you call start
+	// the callbacks are optional, and will fire when they are defined and the agent starts
+	const basicExampleCaller = myRiverClient.basicExample({
+		onStart: () => {
+			// fires when the agent starts
+			console.log('Starting basic example');
+		},
+		onChunk: ({ letter, isVowel }) => {
+			// fires when a chunk is received
+			// will always just have one chunk and is fully type safe
+			console.log(`${letter} is ${isVowel ? 'a vowel' : 'a consonant'}`);
+		},
+		onCancel: () => {
+			// fires when the agent is cancelled/stopped
+			console.log('You cancelled the basic example');
+		},
+		onError: (error) => {
+			// fires when the agent errors
+			console.error('Error in basic example', error);
+		},
+		onComplete: ({ totalChunks, duration }) => {
+			// fires when the agent completes
+			// this will ALWAYS fire last, even if the agent was cancelled or errored
+			console.log(`Basic example completed in ${duration}ms with ${totalChunks} chunks`);
+		}
+	});
+
+	const handleStart = async () => {
+		// actually starts the agent
+		await basicExampleCaller.start({
+			message: 'This is in fact a message'
+		});
+	};
+
+	const handleCancel = () => {
+		// stops the agent (uses an abort controller under the hood)
+		basicExampleCaller.stop();
+	};
+</script>
+
+<!-- some UI to to consume and start the stream -->
+```
 
 ## project info
 
@@ -96,24 +192,20 @@ if you want to try this out, it's now available on npm!
 
 - streams went from something you touch every once and a while, to something we're using all the time
 - i want typesafety
-- i like react query patterns, I want them for everything
-- streams are verbose and gross out of the box
-- _i want a company to steal this_
+- mutations are awesome in tanstack query, i want them for streams
+- rpc >>>>>>
+- streams are a pain to consume out of the box (readers and encoders and raw fetch and type casting and more annoying shit)
 
-### examples that currently work
+### FEATURES TODO/IN PROGRESS
 
-_the actual logic and important bits were fully written by me and are good and work, but the ui is vibe coded garbage. it's just an example they'll be better later_
-
-- `src/routes/examples/basic`
-- `src/routes/examples/kitchenSink`
-- `src/routes/examples/chat`
-
-### FEATURES I WANT TO ADD
-
+- better abort controller support in ai-sdk agents. need to be able to pass a signal into the agent
+- "beforeAgentRun" hooks on the server for both types of agents. will give you access to the request event so you can do stuff like auth checks, pull things out of DB, etc...
 - stream resumability support. need to figure out a good way to dump the stream to a persistent store so we can easily resume later **will require api changes**
 - "waitUntil" support. this pretty much goes hand and hand with stream resumability
 
-## docs for: `0.0.1`
+## docs for: `0.0.2`
+
+_see the examples for more detailed usage, these api's will change..._
 
 ### core primitives
 
@@ -121,96 +213,6 @@ _the actual logic and important bits were fully written by me and are good and w
 2. **agent router**: the is the thing you create on the server which will allow you to call agents. VERY similar to a TRPC router.
 3. **agent caller**: this is the client side primitive for actually calling agents. It's fully type safe (grabs types from the router) and feels like react query.
 4. **endpoint handler**: this is something you will basically never touch. it's just a function that returns a POST handler for actually processing your requests
-
-### the key apis
-
-1. `RIVER_SERVER.createAiSdkAgent`
-   this is how you create an agent that uses the ai-sdk. works kinda like a TRPC procedure, except for this one you return a stream from `streamText()`
-
-_full example on `src/routes/examples/river/agents.ts`_
-
-```ts
-export const exampleAiSdkAgent = RIVER_SERVER.createAiSdkAgent({
-	inputSchema: z.object({
-		prompt: z.string()
-	}),
-	agent: ({ prompt }) => {
-		// demoAiStream is a function that returns the result of streamText()
-		return demoAiStream(prompt);
-	}
-});
-```
-
-2. `RIVER_SERVER.createCustomAgent`
-   this is how you create an agent that uses a custom stream. works kinda like a TRPC procedure, except for this one you have an async function where you get an append method to send stuff to the stream
-
-_full example on `src/routes/examples/river/agents.ts`_
-
-```ts
-export const exampleCustomAgent = RIVER_SERVER.createCustomAgent({
-	inputSchema: z.object({
-		yourName: z.string()
-	}),
-	streamChunkSchema: z.object({
-		character: z.string(),
-		index: z.number()
-	}),
-	agent: async ({ yourName }, append) => {
-		const characters = yourName.split('');
-		let index = 0;
-		for (const character of characters) {
-			append({ character, index });
-			index++;
-			await new Promise((resolve) => setTimeout(resolve, 50));
-		}
-	}
-});
-```
-
-3. `RIVER_SERVER.createAgentRouter`
-   this is how you create an agent router. works kinda like a TRPC router.
-
-_full example on `src/routes/examples/river/router.ts`_
-
-```ts
-export const exampleRouter = RIVER_SERVER.createAgentRouter({
-	exampleAiSdkAgent,
-	exampleCustomAgent
-});
-
-export type ExampleRouter = typeof exampleRouter;
-```
-
-4. `RIVER_SERVER.createServerEndpointHandler`
-   takes in your router and returns a POST that you can just dump in a `+server.ts` file
-
-_full example on `src/routes/examples/river/+server.ts`_
-
-```ts
-export const { POST } = RIVER_SERVER.createServerEndpointHandler(exampleRouter);
-```
-
-5. `RIVER_CLIENT.createClientCaller`
-   this is how you create a client caller, similar to the trpc client
-
-_full example on `src/routes/examples/river/client.ts`_
-
-```ts
-export const riverClient = RIVER_CLIENT.createClientCaller<ExampleRouter>('/examples/river');
-```
-
-6. `riverClient.AGENT_NAME()`
-   these work like mutations in trpc. the agent isn't called until you call `start()`, can be cancelled with `stop()`, and has life cycle events for everything you might want.
-
-```ts
-const { start, stop } = riverClient.exampleCustomAgent({
-	onStart: () => {},
-	onChunk: (chunk) => {},
-	onComplete: (data) => {},
-	onError: (error) => {},
-	onCancel: () => {}
-});
-```
 
 ### helper types
 
