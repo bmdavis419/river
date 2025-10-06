@@ -110,13 +110,13 @@ const createServerEndpointHandler: ServerEndpointHandler = (router, hooks) => {
 								err instanceof RiverError
 									? err
 									: new RiverError(`[RIVER:${agentId}] - Run Failed`, err);
-							await safeCall(hooks.onError, { event, agentId, input, error });
+							await callServerHook(hooks.onError, { event, agentId, input, error });
 						} else {
 							console.error('Unhandled error during agent run:', err);
 						}
 					};
 
-					await safeCall(hooks?.beforeAgentRun, { event, agentId, input, abortController });
+					await callServerHook(hooks?.beforeAgentRun, { event, agentId, input, abortController });
 
 					try {
 						await runner.runAgent({
@@ -135,13 +135,13 @@ const createServerEndpointHandler: ServerEndpointHandler = (router, hooks) => {
 						}
 					} finally {
 						streamController.close();
-						await safeCall(hooks?.afterAgentRun, { event, agentId, input });
+						await callServerHook(hooks?.afterAgentRun, { event, agentId, input });
 					}
 				},
 				cancel(reason) {
 					abortController.abort(reason);
 
-					safeCall(hooks?.onAbort, { event, agentId, input, reason });
+					callServerHook(hooks?.onAbort, { event, agentId, input, reason });
 				}
 			});
 
@@ -150,7 +150,7 @@ const createServerEndpointHandler: ServerEndpointHandler = (router, hooks) => {
 	};
 };
 
-async function safeCall<T>(
+async function callServerHook<T>(
 	hook: HookForSafeCall<T> | undefined,
 	args: T,
 	globalOnError?: (err: unknown) => Promise<void>
