@@ -77,8 +77,38 @@ type ServerSideAgentRunner = <T extends AgentRouter>(
 };
 
 type ServerEndpointHandler = <T extends AgentRouter>(
-	router: DecoratedAgentRouter<T>
+	router: DecoratedAgentRouter<T>,
+	hooks: LifecycleHooks<T>
 ) => { POST: (event: RequestEvent) => Promise<Response> };
+
+type LifecycleHooks<T extends AgentRouter> = {
+	beforeAgentRun?: <K extends keyof T>(ctx: {
+		event: RequestEvent;
+		agentId: K;
+		input: InferRiverAgentInputType<T[K]>;
+		abortController: AbortController;
+		// potential future add for passing through the start time of the lifecycle?
+		// startAt: number;
+	}) => void | Promise<void>;
+	afterAgentRun?: <K extends keyof T>(ctx: {
+		event: RequestEvent;
+		agentId: K;
+		input: InferRiverAgentInputType<T[K]>;
+		// metrics: { totalChunks: number; durationMs: number };
+	}) => void | Promise<void>;
+	onError?: <K extends keyof T>(ctx: {
+		event: RequestEvent;
+		error: RiverError;
+		agentId: K;
+		input: InferRiverAgentInputType<T[K]>;
+	}) => void | Promise<void>;
+	onAbort?: <K extends keyof T>(ctx: {
+		event: RequestEvent;
+		agentId: K;
+		input: InferRiverAgentInputType<T[K]>;
+		reason?: unknown;
+	}) => void;
+};
 
 // CLIENT CALLER SECTION
 type OnCompleteCallback = (data: { totalChunks: number; duration: number }) => void | Promise<void>;

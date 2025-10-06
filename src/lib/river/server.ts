@@ -70,7 +70,7 @@ const createServerSideAgentRunner: ServerSideAgentRunner = (router) => {
 	};
 };
 
-const createServerEndpointHandler: ServerEndpointHandler = (router) => {
+const createServerEndpointHandler: ServerEndpointHandler = (router, hooks) => {
 	const runner = createServerSideAgentRunner(router);
 	return {
 		POST: async (event) => {
@@ -95,10 +95,14 @@ const createServerEndpointHandler: ServerEndpointHandler = (router) => {
 				const error = new RiverError('Invalid body', bodyResult.error);
 				return new Response(JSON.stringify(error), { status: 400 });
 			}
+			const { agentId, input } = bodyResult.data;
 
 			const stream = new ReadableStream<Uint8Array>({
 				async start(streamController) {
 					// TODO: make it so that you can do some wait until and piping shit in here
+
+					await hooks?.beforeAgentRun?.({ event, agentId, input, abortController });
+
 					try {
 						await runner.runAgent({
 							agentId: bodyResult.data.agentId,
@@ -114,10 +118,12 @@ const createServerEndpointHandler: ServerEndpointHandler = (router) => {
 						}
 					} finally {
 						streamController.close();
+						await hooks?.afterAgentRun?.({ event, agentId, input });
 					}
 				},
 				cancel(reason) {
 					abortController.abort(reason);
+					hooks?.onAbort?.({ event, agentId, input, reason });
 				}
 			});
 
