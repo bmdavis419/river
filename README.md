@@ -201,6 +201,7 @@ export const myRiverClient = RIVER_CLIENT.createClientCaller<MyRiverRouter>('/ap
 - better abort controller support in ai-sdk agents. need to be able to pass a signal into the agent
 - "beforeAgentRun" hooks on the server for both types of agents. will give you access to the request event so you can do stuff like auth checks, pull things out of DB, etc...
 - cleanup package deps, currently too many are bundled in
+- more robust error handling on both client and server. want to do something similar to trpc's `TRPCError`
 - stream resumability support. need to figure out a good way to dump the stream to a persistent store so we can easily resume later **will require api changes**
 - "waitUntil" support. this pretty much goes hand and hand with stream resumability
 
