@@ -12,6 +12,9 @@ export const exampleChatAgent = RIVER_SERVER.createAiSdkAgent({
 			content: z.string()
 		})
 	),
+	afterAgentRun: (status) => {
+		console.log('afterAgentRun', status);
+	},
 	agent: (messages) => {
 		return chatDemoAiStream(messages);
 	}
@@ -21,6 +24,14 @@ export const exampleAiSdkAgent = RIVER_SERVER.createAiSdkAgent({
 	inputSchema: z.object({
 		prompt: z.string()
 	}),
+	beforeAgentRun: (input) => {
+		return {
+			prompt: input.prompt + ' also are apples purple?'
+		};
+	},
+	afterAgentRun: (status) => {
+		console.log('afterAgentRun', status);
+	},
 	agent: ({ prompt }, abortSignal) => {
 		return demoAiStream(prompt, abortSignal);
 	}

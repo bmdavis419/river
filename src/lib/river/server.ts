@@ -8,11 +8,21 @@ import type {
 } from './types.js';
 import { RiverError } from './errors.js';
 
-const createAiSdkAgent: CreateAiSdkRiverAgent = ({ agent, inputSchema }) => {
+const createAiSdkAgent: CreateAiSdkRiverAgent = (stuff: any) => {
+	if ('beforeAgentRun' in stuff) {
+		return {
+			agent: stuff.agent,
+			inputSchema: stuff.inputSchema,
+			type: 'ai-sdk' as const,
+			beforeAgentRun: stuff.beforeAgentRun,
+			afterAgentRun: stuff.afterAgentRun
+		};
+	}
 	return {
-		agent,
-		inputSchema,
-		type: 'ai-sdk'
+		agent: stuff.agent,
+		inputSchema: stuff.inputSchema,
+		type: 'ai-sdk' as const,
+		afterAgentRun: stuff.afterAgentRun
 	};
 };
 
@@ -32,15 +42,22 @@ const createAgentRouter: CreateAgentRouter = (agents) => {
 const createServerSideAgentRunner: ServerSideAgentRunner = (router) => {
 	return {
 		runAgent: async (args) => {
-			const { agentId, input, streamController, abortController } = args;
+			const { agentId, input, streamController, abortController, event } = args;
 
 			const encoder = new TextEncoder();
 
 			const agent = router[agentId];
 
 			if (agent.type === 'ai-sdk') {
-				const { agent: aiSdkAgent } = agent;
-				const { fullStream } = aiSdkAgent(input, abortController.signal);
+				const { agent: aiSdkAgent, beforeAgentRun, afterAgentRun } = agent;
+
+				let internalInput: unknown = input;
+
+				if (beforeAgentRun) {
+					internalInput = await beforeAgentRun(input, event, abortController.signal);
+				}
+
+				const { fullStream } = aiSdkAgent(internalInput, abortController.signal);
 
 				for await (const chunk of fullStream) {
 					if (abortController.signal.aborted) {
@@ -99,18 +116,31 @@ const createServerEndpointHandler: ServerEndpointHandler = (router) => {
 			const stream = new ReadableStream<Uint8Array>({
 				async start(streamController) {
 					// TODO: make it so that you can do some wait until and piping shit in here
+					const internalAgent = router[bodyResult.data.agentId];
 					try {
 						await runner.runAgent({
 							agentId: bodyResult.data.agentId,
 							input: bodyResult.data.input,
 							streamController,
-							abortController
+							abortController,
+							event
 						});
+						if (internalAgent.type === 'ai-sdk' && internalAgent.afterAgentRun) {
+							await internalAgent.afterAgentRun(
+								abortController.signal.aborted ? 'canceled' : 'success'
+							);
+						}
 					} catch (error) {
 						if (abortController.signal.aborted) {
 							streamController.close();
+							if (internalAgent.type === 'ai-sdk' && internalAgent.afterAgentRun) {
+								await internalAgent.afterAgentRun('canceled');
+							}
 						} else {
 							streamController.error(error);
+							if (internalAgent.type === 'ai-sdk' && internalAgent.afterAgentRun) {
+								await internalAgent.afterAgentRun('error');
+							}
 						}
 					} finally {
 						streamController.close();

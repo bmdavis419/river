@@ -206,14 +206,12 @@ export const myRiverClient = RIVER_CLIENT.createClientCaller<MyRiverRouter>('/ap
 
 ### FEATURES TODO/IN PROGRESS
 
-- more hooks on the agents server side, stuff like "beforeAgentRun", and "afterAgentRun", and "onError", and "onAbort"
-- give agents access to the request event. need to decide where that happens, leaning towards the before/after hooks...
 - cleanup package deps, currently too many are bundled in
 - more robust error handling on both client and server. want to do something similar to trpc's `TRPCError`
 - stream resumability support. need to figure out a good way to dump the stream to a persistent store so we can easily resume later **will require api changes**
 - "waitUntil" support. this pretty much goes hand and hand with stream resumability
 
-## docs for: `0.0.3`
+## docs for: `0.0.4`
 
 _see the examples for more detailed usage, these api's will change..._
 
