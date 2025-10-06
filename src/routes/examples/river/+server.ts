@@ -1,11 +1,18 @@
-import { RIVER_SERVER } from '$lib/index.js';
+import { RIVER_SERVER, RiverError } from '$lib/index.js';
 import { exampleRouter } from './router.js';
 
 // in the real world this should probably be in src/routes/api/river/+server.ts
 
 export const { POST } = RIVER_SERVER.createServerEndpointHandler(exampleRouter, {
-	beforeAgentRun: async ({ event, input, agentId, abortController }) => {
-		console.log('[HOOK] - beforeAgentRun', event.route.id, agentId, input);
+	beforeAgentRun: {
+		try: ({ input }) => {
+			console.log('[HOOK] - beforeAgentRun', { input });
+			throw new RiverError('Example Throw');
+		},
+		catch: (error, { input }) => {
+			// Allows for per hook error handling
+			console.error('[HOOK ERROR] - beforeAgentRun', error);
+		}
 	},
 	afterAgentRun: async ({ event, input, agentId }) => {
 		console.log('[HOOK] - afterAgentRun', { agentId });

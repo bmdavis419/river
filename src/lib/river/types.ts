@@ -81,15 +81,25 @@ type ServerEndpointHandler = <T extends AgentRouter>(
 	hooks?: LifecycleHooks<T>
 ) => { POST: (event: RequestEvent) => Promise<Response> };
 
-type LifecycleHooks<T extends AgentRouter> = {
-	beforeAgentRun?: <K extends keyof T>(ctx: {
-		event: RequestEvent;
-		agentId: K;
-		input: InferRiverAgentInputType<T[K]>;
-		abortController: AbortController;
-		// potential future add for passing through the start time of the lifecycle?
-		// startAt: number;
-	}) => void | Promise<void>;
+export type HookWithError<T> = {
+	try: (args: T) => Promise<void> | void;
+	catch: (error: unknown, args: T) => Promise<void> | void;
+};
+
+export type LifecycleHooks<T extends AgentRouter> = {
+	beforeAgentRun?:
+		| HookWithError<{
+				event: RequestEvent;
+				agentId: keyof T;
+				input: InferRiverAgentInputType<T[keyof T]>;
+				abortController: AbortController;
+		  }>
+		| (<K extends keyof T>(args: {
+				event: RequestEvent;
+				agentId: K;
+				input: InferRiverAgentInputType<T[K]>;
+				abortController: AbortController;
+		  }) => Promise<void> | void);
 	afterAgentRun?: <K extends keyof T>(ctx: {
 		event: RequestEvent;
 		agentId: K;

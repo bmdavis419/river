@@ -1,8 +1,10 @@
 import z from 'zod';
 import type {
+	AgentRouter,
 	CreateAgentRouter,
 	CreateAiSdkRiverAgent,
 	CreateCustomRiverAgent,
+	LifecycleHooks,
 	ServerEndpointHandler,
 	ServerSideAgentRunner
 } from './types.js';
@@ -101,7 +103,19 @@ const createServerEndpointHandler: ServerEndpointHandler = (router, hooks) => {
 				async start(streamController) {
 					// TODO: make it so that you can do some wait until and piping shit in here
 
-					await hooks?.beforeAgentRun?.({ event, agentId, input, abortController });
+					const defaultErrorHandler = async (error: unknown) => {
+						if (hooks?.onError) {
+							const riverErr =
+								error instanceof RiverError
+									? error
+									: new RiverError(`[RIVER:${agentId}] - Run Failed`, error);
+							await safeCall(hooks.onError, { event, agentId, input, riverErr });
+						} else {
+							console.error('Unhandled error during agent run:', error);
+						}
+					};
+
+					await safeCall(hooks?.beforeAgentRun, { event, agentId, input, abortController });
 
 					try {
 						await runner.runAgent({
@@ -115,11 +129,8 @@ const createServerEndpointHandler: ServerEndpointHandler = (router, hooks) => {
 							streamController.close();
 						} else {
 							streamController.error(error);
-							const riverErr =
-								error instanceof RiverError
-									? error
-									: new RiverError(`[RIVER:${agentId}] - Run Failed`, error);
-							await hooks?.onError?.({ event, agentId, input, error: riverErr });
+
+							await defaultErrorHandler(error);
 						}
 					} finally {
 						streamController.close();
@@ -136,6 +147,30 @@ const createServerEndpointHandler: ServerEndpointHandler = (router, hooks) => {
 		}
 	};
 };
+
+async function safeCall<T extends AgentRouter, K extends keyof LifecycleHooks<T>>(
+	hook: LifecycleHooks<T>[K] | undefined,
+	args: any, // can improve typing per hook later
+	globalOnError?: (err: unknown) => Promise<void>
+) {
+	if (!hook) return;
+
+	try {
+		if (typeof hook === 'function') {
+			await hook(args);
+		} else {
+			await hook.try(args);
+		}
+	} catch (err) {
+		if (hook && typeof hook !== 'function' && hook.catch) {
+			await hook.catch(err, { ...args });
+		} else if (globalOnError) {
+			await globalOnError(err);
+		} else {
+			console.error('Unhandled hook error:', err);
+		}
+	}
+}
 
 export const RIVER_SERVER = {
 	createAgentRouter,
