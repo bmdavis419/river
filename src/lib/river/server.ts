@@ -103,15 +103,15 @@ const createServerEndpointHandler: ServerEndpointHandler = (router, hooks) => {
 				async start(streamController) {
 					// TODO: make it so that you can do some wait until and piping shit in here
 
-					const defaultErrorHandler = async (error: unknown) => {
+					const defaultErrorHandler = async (err: unknown) => {
 						if (hooks?.onError) {
-							const riverErr =
-								error instanceof RiverError
-									? error
-									: new RiverError(`[RIVER:${agentId}] - Run Failed`, error);
-							await safeCall(hooks.onError, { event, agentId, input, riverErr });
+							const error =
+								err instanceof RiverError
+									? err
+									: new RiverError(`[RIVER:${agentId}] - Run Failed`, err);
+							await safeCall(hooks.onError, { event, agentId, input, error });
 						} else {
-							console.error('Unhandled error during agent run:', error);
+							console.error('Unhandled error during agent run:', err);
 						}
 					};
 
@@ -139,6 +139,7 @@ const createServerEndpointHandler: ServerEndpointHandler = (router, hooks) => {
 				},
 				cancel(reason) {
 					abortController.abort(reason);
+
 					safeCall(hooks?.onAbort, { event, agentId, input, reason });
 				}
 			});
