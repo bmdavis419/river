@@ -21,8 +21,8 @@ export const exampleAiSdkAgent = RIVER_SERVER.createAiSdkAgent({
 	inputSchema: z.object({
 		prompt: z.string()
 	}),
-	agent: ({ prompt }) => {
-		return demoAiStream(prompt);
+	agent: ({ prompt }, abortSignal) => {
+		return demoAiStream(prompt, abortSignal);
 	}
 });
 

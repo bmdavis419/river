@@ -40,7 +40,7 @@ const createServerSideAgentRunner: ServerSideAgentRunner = (router) => {
 
 			if (agent.type === 'ai-sdk') {
 				const { agent: aiSdkAgent } = agent;
-				const { fullStream } = aiSdkAgent(input);
+				const { fullStream } = aiSdkAgent(input, abortController.signal);
 
 				for await (const chunk of fullStream) {
 					if (abortController.signal.aborted) {

@@ -11,19 +11,19 @@ _an experiment by <a href="https://davis7.sh" target="_blank">ben davis</a> that
 	// ALL of this is type safe, feels just like TRPC
 	const { start, stop } = myRiverClient.basicExample({
 		onStart: () => {
-			console.log('Starting basic example');
+			console.log('starting basic example');
 		},
 		onChunk: (chunk) => {
 			// full type safety on the chunks
 		},
 		onCancel: () => {
-			console.log('You cancelled the basic example');
+			console.warn('you cancelled the basic example');
 		},
 		onError: (error) => {
-			console.error('Error in basic example', error);
+			console.error('error in basic example', error);
 		},
 		onComplete: ({ totalChunks, duration }) => {
-			console.log(`Basic example completed in ${duration}ms with ${totalChunks} chunks`);
+			console.log(`basic example completed in ${duration}ms with ${totalChunks} chunks`);
 		}
 	});
 </script>
@@ -206,7 +206,6 @@ export const myRiverClient = RIVER_CLIENT.createClientCaller<MyRiverRouter>('/ap
 
 ### FEATURES TODO/IN PROGRESS
 
-- better abort controller support in ai-sdk agents. need to be able to pass a signal into the agent
 - "beforeAgentRun" hooks on the server for both types of agents. will give you access to the request event so you can do stuff like auth checks, pull things out of DB, etc...
 - cleanup package deps, currently too many are bundled in
 - more robust error handling on both client and server. want to do something similar to trpc's `TRPCError`

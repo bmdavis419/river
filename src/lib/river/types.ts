@@ -9,7 +9,7 @@ type AiSdkRiverAgent<T extends ToolSet, I> = {
 		chunkType: TextStreamPart<T>;
 		inputType: I;
 	};
-	agent: (input: I) => StreamTextResult<T, never>;
+	agent: (input: I, abortSignal: AbortSignal) => StreamTextResult<T, never>;
 	type: 'ai-sdk';
 	inputSchema: z.ZodType<I>;
 	// ideas for future: before run guard, resumability pipe, pipe elsewhere in background...
@@ -45,7 +45,7 @@ type InferRiverAgent<T> =
 
 // CREATE AGENT FUNCTION TYPES
 type CreateAiSdkRiverAgent = <T extends ToolSet, I>(args: {
-	agent: (input: I) => StreamTextResult<T, never>;
+	agent: (input: I, abortSignal: AbortSignal) => StreamTextResult<T, never>;
 	inputSchema: z.ZodType<I>;
 }) => AiSdkRiverAgent<T, I>;
 
