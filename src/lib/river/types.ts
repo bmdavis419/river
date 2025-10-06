@@ -77,8 +77,58 @@ type ServerSideAgentRunner = <T extends AgentRouter>(
 };
 
 type ServerEndpointHandler = <T extends AgentRouter>(
-	router: DecoratedAgentRouter<T>
+	router: DecoratedAgentRouter<T>,
+	hooks?: LifecycleHooks<T>
 ) => { POST: (event: RequestEvent) => Promise<Response> };
+
+type ServerHook<T> =
+	| ((args: T) => Promise<void> | void)
+	| {
+			try: (args: T) => Promise<void> | void;
+			catch: (error: unknown, args: T) => Promise<void> | void;
+	  };
+
+type AllBeforeAgentRunArgs<T extends AgentRouter> = {
+	[K in keyof T]: {
+		event: RequestEvent;
+		agentId: K;
+		input: InferRiverAgentInputType<T[K]>;
+		abortController: AbortController;
+	};
+}[keyof T];
+
+type AllAfterAgentRunArgs<T extends AgentRouter> = {
+	[K in keyof T]: {
+		event: RequestEvent;
+		agentId: K;
+		input: InferRiverAgentInputType<T[K]>;
+	};
+}[keyof T];
+
+type AllOnAbortArgs<T extends AgentRouter> = {
+	[K in keyof T]: {
+		event: RequestEvent;
+		agentId: K;
+		input: InferRiverAgentInputType<T[K]>;
+		reason?: unknown;
+	};
+}[keyof T];
+
+type AllOnErrorArgs<T extends AgentRouter> = {
+	[K in keyof T]: {
+		event: RequestEvent;
+		error: RiverError;
+		agentId: K;
+		input: InferRiverAgentInputType<T[K]>;
+	};
+}[keyof T];
+
+type LifecycleHooks<T extends AgentRouter> = {
+	beforeAgentRun?: ServerHook<AllBeforeAgentRunArgs<T>>;
+	afterAgentRun?: ServerHook<AllAfterAgentRunArgs<T>>;
+	onAbort?: ServerHook<AllOnAbortArgs<T>>;
+	onError?: (ctx: AllOnErrorArgs<T>) => void | Promise<void>;
+};
 
 // CLIENT CALLER SECTION
 type OnCompleteCallback = (data: { totalChunks: number; duration: number }) => void | Promise<void>;
@@ -127,5 +177,7 @@ export type {
 	ServerSideAgentRunner,
 	ServerEndpointHandler,
 	ClientSideCaller,
-	AgentRouter
+	AgentRouter,
+	LifecycleHooks,
+	ServerHook
 };

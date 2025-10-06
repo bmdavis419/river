@@ -1,8 +1,11 @@
 import z from 'zod';
 import type {
+	AgentRouter,
 	CreateAgentRouter,
 	CreateAiSdkRiverAgent,
 	CreateCustomRiverAgent,
+	ServerHook,
+	LifecycleHooks,
 	ServerEndpointHandler,
 	ServerSideAgentRunner
 } from './types.js';
@@ -70,7 +73,7 @@ const createServerSideAgentRunner: ServerSideAgentRunner = (router) => {
 	};
 };
 
-const createServerEndpointHandler: ServerEndpointHandler = (router) => {
+const createServerEndpointHandler: ServerEndpointHandler = (router, hooks) => {
 	const runner = createServerSideAgentRunner(router);
 	return {
 		POST: async (event) => {
@@ -95,10 +98,26 @@ const createServerEndpointHandler: ServerEndpointHandler = (router) => {
 				const error = new RiverError('Invalid body', bodyResult.error);
 				return new Response(JSON.stringify(error), { status: 400 });
 			}
+			const { agentId, input } = bodyResult.data;
 
 			const stream = new ReadableStream<Uint8Array>({
 				async start(streamController) {
 					// TODO: make it so that you can do some wait until and piping shit in here
+
+					const defaultErrorHandler = async (err: unknown) => {
+						if (hooks?.onError) {
+							const error =
+								err instanceof RiverError
+									? err
+									: new RiverError(`[RIVER:${agentId}] - Run Failed`, err);
+							await callServerHook(hooks.onError, { event, agentId, input, error });
+						} else {
+							console.error('Unhandled error during agent run:', err);
+						}
+					};
+
+					await callServerHook(hooks?.beforeAgentRun, { event, agentId, input, abortController });
+
 					try {
 						await runner.runAgent({
 							agentId: bodyResult.data.agentId,
@@ -111,13 +130,18 @@ const createServerEndpointHandler: ServerEndpointHandler = (router) => {
 							streamController.close();
 						} else {
 							streamController.error(error);
+
+							await defaultErrorHandler(error);
 						}
 					} finally {
 						streamController.close();
+						await callServerHook(hooks?.afterAgentRun, { event, agentId, input });
 					}
 				},
 				cancel(reason) {
 					abortController.abort(reason);
+
+					callServerHook(hooks?.onAbort, { event, agentId, input, reason });
 				}
 			});
 
@@ -125,6 +149,30 @@ const createServerEndpointHandler: ServerEndpointHandler = (router) => {
 		}
 	};
 };
+
+async function callServerHook<T>(
+	hook: ServerHook<T> | undefined,
+	args: T,
+	globalOnError?: (err: unknown) => Promise<void>
+) {
+	if (!hook) return;
+
+	try {
+		if (typeof hook === 'function') {
+			await hook(args);
+		} else {
+			await hook.try(args);
+		}
+	} catch (err) {
+		if (hook && typeof hook !== 'function' && hook.catch) {
+			await hook.catch(err, { ...args });
+		} else if (globalOnError) {
+			await globalOnError(err);
+		} else {
+			console.error('Unhandled hook error:', err);
+		}
+	}
+}
 
 export const RIVER_SERVER = {
 	createAgentRouter,
