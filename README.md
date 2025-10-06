@@ -56,9 +56,13 @@ this project does actually work right now, but it is very early in development a
 
 if you want to try this out, it's now available on npm!
 
-I've built out two examples, one using the ai-sdk and one using a custom stream. both are fully type safe and work great. You can find them <a href="https://github.com/bmdavis419/river-examples" target="_blank">here</a>
+I've built out two examples, one using the ai-sdk and one using a custom stream.
 
-**here's a quick getting started guide for custom streams**
+they're both are fully type safe, are pleasant to work in, and work great.
+
+You can find them <a href="https://github.com/bmdavis419/river-examples" target="_blank">here</a>
+
+### here's a quick getting started guide for custom streams
 
 0. create a new sveltekit project (if you don't have one already)
 
