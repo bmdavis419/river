@@ -60,6 +60,12 @@ I've built out two examples, one using the ai-sdk and one using a custom stream.
 
 **here's a quick getting started guide for custom streams**
 
+0. create a new sveltekit project (if you don't have one already)
+
+```bash
+bunx sv create river-demo
+```
+
 1. install dependencies
 
 ```bash
