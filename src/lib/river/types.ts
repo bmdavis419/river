@@ -4,15 +4,22 @@ import type { RequestEvent } from '@sveltejs/kit';
 import type { RiverError } from './errors.js';
 
 // AGENTS SECTION
-type AiSdkRiverAgent<T extends ToolSet, I> = {
+type AiSdkRiverAgent<T extends ToolSet, Input, InternalInput = Input> = {
 	_phantom?: {
 		chunkType: TextStreamPart<T>;
-		inputType: I;
+		inputType: Input;
+		internalInputType: InternalInput;
 	};
-	agent: (input: I, abortSignal: AbortSignal) => StreamTextResult<T, never>;
+	beforeAgentRun?: (
+		input: Input,
+		event: RequestEvent,
+		abortSignal: AbortSignal
+	) => Promise<InternalInput> | InternalInput;
+	agent: (input: InternalInput, abortSignal: AbortSignal) => StreamTextResult<T, never>;
+	afterAgentRun?: (status: 'success' | 'error' | 'canceled') => Promise<void> | void;
 	type: 'ai-sdk';
-	inputSchema: z.ZodType<I>;
-	// ideas for future: before run guard, resumability pipe, pipe elsewhere in background...
+	inputSchema: z.ZodType<Input>;
+	// ideas for future: resumability pipe, pipe elsewhere in background...
 };
 
 type CustomRiverAgent<T, I> = {
@@ -24,10 +31,10 @@ type CustomRiverAgent<T, I> = {
 	agent: (input: I, appendToStream: (chunk: T) => void) => Promise<void>;
 	streamChunkSchema: z.ZodType<T>;
 	inputSchema: z.ZodType<I>;
-	// ideas for future: before run guard, resumability pipe, pipe elsewhere in background...
+	// ideas for future: resumability pipe, pipe elsewhere in background...
 };
 
-type AnyRiverAgent = AiSdkRiverAgent<any, any> | CustomRiverAgent<any, any>;
+type AnyRiverAgent = AiSdkRiverAgent<any, any, any> | CustomRiverAgent<any, any>;
 
 // INFER HELPER TYPES
 type InferRiverAgentChunkType<T> = T extends { _phantom?: { chunkType: infer Chunk } }
@@ -37,17 +44,36 @@ type InferRiverAgentInputType<T> = T extends { _phantom?: { inputType: infer Inp
 	? Input
 	: never;
 type InferRiverAgent<T> =
-	T extends AiSdkRiverAgent<infer Tools, infer Input>
-		? AiSdkRiverAgent<Tools, Input>
+	T extends AiSdkRiverAgent<infer Tools, infer Input, infer InternalInput>
+		? AiSdkRiverAgent<Tools, Input, InternalInput>
 		: T extends CustomRiverAgent<infer Chunk, infer Input>
 			? CustomRiverAgent<Chunk, Input>
 			: never;
 
 // CREATE AGENT FUNCTION TYPES
-type CreateAiSdkRiverAgent = <T extends ToolSet, I>(args: {
-	agent: (input: I, abortSignal: AbortSignal) => StreamTextResult<T, never>;
-	inputSchema: z.ZodType<I>;
-}) => AiSdkRiverAgent<T, I>;
+type CreateAiSdkRiverAgent = {
+	<T extends ToolSet, Input>(args: {
+		inputSchema: z.ZodType<Input>;
+		agent: (
+			input: Input,
+			event: RequestEvent,
+			abortSignal: AbortSignal
+		) => StreamTextResult<T, never>;
+		afterAgentRun?: (status: 'success' | 'error' | 'canceled') => Promise<void> | void;
+		beforeAgentRun?: undefined;
+	}): AiSdkRiverAgent<T, Input>;
+
+	<T extends ToolSet, Input, InternalInput>(args: {
+		inputSchema: z.ZodType<Input>;
+		beforeAgentRun: (
+			input: Input,
+			event: RequestEvent,
+			abortSignal: AbortSignal
+		) => Promise<InternalInput> | InternalInput;
+		agent: (input: InternalInput, abortSignal: AbortSignal) => StreamTextResult<T, never>;
+		afterAgentRun?: (status: 'success' | 'error' | 'canceled') => Promise<void> | void;
+	}): AiSdkRiverAgent<T, Input, InternalInput>;
+};
 
 type CreateCustomRiverAgent = <T, I>(args: {
 	agent: (input: I, appendToStream: (chunk: T) => void) => Promise<void>;
@@ -73,6 +99,7 @@ type ServerSideAgentRunner = <T extends AgentRouter>(
 		input: InferRiverAgentInputType<T[K]>;
 		streamController: ReadableStreamDefaultController<Uint8Array>;
 		abortController: AbortController;
+		event: RequestEvent;
 	}) => Promise<void>;
 };
 
