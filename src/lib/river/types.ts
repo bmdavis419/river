@@ -81,62 +81,58 @@ type ServerEndpointHandler = <T extends AgentRouter>(
 	hooks?: LifecycleHooks<T>
 ) => { POST: (event: RequestEvent) => Promise<Response> };
 
-export type HookWithError<T> = {
+type HookWithError<T> = {
 	try: (args: T) => Promise<void> | void;
 	catch: (error: unknown, args: T) => Promise<void> | void;
 };
 
-export type HookForSafeCall<T> =
+type HookForSafeCall<T> =
 	| ((args: T) => Promise<void> | void)
 	| {
 			try: (args: T) => Promise<void> | void;
 			catch: (error: unknown, args: T) => Promise<void> | void;
 	  };
 
-export type LifecycleHooks<T extends AgentRouter> = {
-	beforeAgentRun?:
-		| HookWithError<{
-				event: RequestEvent;
-				agentId: keyof T;
-				input: InferRiverAgentInputType<T[keyof T]>;
-				abortController: AbortController;
-		  }>
-		| (<K extends keyof T>(args: {
-				event: RequestEvent;
-				agentId: K;
-				input: InferRiverAgentInputType<T[K]>;
-				abortController: AbortController;
-		  }) => Promise<void> | void);
-	afterAgentRun?:
-		| HookWithError<{
-				event: RequestEvent;
-				agentId: keyof T;
-				input: InferRiverAgentInputType<T[keyof T]>;
-		  }>
-		| (<K extends keyof T>(ctx: {
-				event: RequestEvent;
-				agentId: K;
-				input: InferRiverAgentInputType<T[K]>;
-		  }) => void | Promise<void>);
-	onAbort?:
-		| HookWithError<{
-				event: RequestEvent;
-				agentId: keyof T;
-				input: InferRiverAgentInputType<T[keyof T]>;
-				reason?: unknown;
-		  }>
-		| (<K extends keyof T>(ctx: {
-				event: RequestEvent;
-				agentId: K;
-				input: InferRiverAgentInputType<T[K]>;
-				reason?: unknown;
-		  }) => void);
-	onError?: <K extends keyof T>(ctx: {
+type AllBeforeAgentRunArgs<T extends AgentRouter> = {
+	[K in keyof T]: {
+		event: RequestEvent;
+		agentId: K;
+		input: InferRiverAgentInputType<T[K]>;
+		abortController: AbortController;
+	};
+}[keyof T];
+
+type AllAfterAgentRunArgs<T extends AgentRouter> = {
+	[K in keyof T]: {
+		event: RequestEvent;
+		agentId: K;
+		input: InferRiverAgentInputType<T[K]>;
+	};
+}[keyof T];
+
+type AllOnAbortArgs<T extends AgentRouter> = {
+	[K in keyof T]: {
+		event: RequestEvent;
+		agentId: K;
+		input: InferRiverAgentInputType<T[K]>;
+		reason?: unknown;
+	};
+}[keyof T];
+
+type AllOnErrorArgs<T extends AgentRouter> = {
+	[K in keyof T]: {
 		event: RequestEvent;
 		error: RiverError;
 		agentId: K;
 		input: InferRiverAgentInputType<T[K]>;
-	}) => void | Promise<void>;
+	};
+}[keyof T];
+
+type LifecycleHooks<T extends AgentRouter> = {
+	beforeAgentRun?: HookForSafeCall<AllBeforeAgentRunArgs<T>>;
+	afterAgentRun?: HookForSafeCall<AllAfterAgentRunArgs<T>>;
+	onAbort?: HookForSafeCall<AllOnAbortArgs<T>>;
+	onError?: (ctx: AllOnErrorArgs<T>) => void | Promise<void>;
 };
 
 // CLIENT CALLER SECTION
@@ -186,5 +182,8 @@ export type {
 	ServerSideAgentRunner,
 	ServerEndpointHandler,
 	ClientSideCaller,
-	AgentRouter
+	AgentRouter,
+	LifecycleHooks,
+	HookWithError,
+	HookForSafeCall
 };
