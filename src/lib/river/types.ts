@@ -86,6 +86,13 @@ export type HookWithError<T> = {
 	catch: (error: unknown, args: T) => Promise<void> | void;
 };
 
+export type HookForSafeCall<T> =
+	| ((args: T) => Promise<void> | void)
+	| {
+			try: (args: T) => Promise<void> | void;
+			catch: (error: unknown, args: T) => Promise<void> | void;
+	  };
+
 export type LifecycleHooks<T extends AgentRouter> = {
 	beforeAgentRun?:
 		| HookWithError<{
