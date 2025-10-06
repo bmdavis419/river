@@ -54,7 +54,7 @@ this project does actually work right now, but it is very early in development a
 
 ## getting started using the package
 
-if you want to try this out, it's now available on npm!
+if you want to try this out, it's now available on [npm](https://www.npmjs.com/package/@davis7dotsh/river-alpha)!
 
 i've built out two examples, one using the ai-sdk and one using a custom stream.
 
@@ -212,7 +212,7 @@ export const myRiverClient = RIVER_CLIENT.createClientCaller<MyRiverRouter>('/ap
 - stream resumability support. need to figure out a good way to dump the stream to a persistent store so we can easily resume later **will require api changes**
 - "waitUntil" support. this pretty much goes hand and hand with stream resumability
 
-## docs for: `0.0.2`
+## docs for: `0.0.3`
 
 _see the examples for more detailed usage, these api's will change..._
 
