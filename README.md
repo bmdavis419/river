@@ -39,7 +39,7 @@ bun i @davis7dotsh/river-alpha
 
 - full type safety
 - rpc-like function calling
-- react query like interface for consuming the streams
+- trpc mutation like interface for consuming the streams
 - ai sdk streaming support **with full stack type safety**
 - custom stream support **with zod validation on chunks**
 
@@ -200,6 +200,7 @@ export const myRiverClient = RIVER_CLIENT.createClientCaller<MyRiverRouter>('/ap
 
 - better abort controller support in ai-sdk agents. need to be able to pass a signal into the agent
 - "beforeAgentRun" hooks on the server for both types of agents. will give you access to the request event so you can do stuff like auth checks, pull things out of DB, etc...
+- cleanup package deps, currently too many are bundled in
 - stream resumability support. need to figure out a good way to dump the stream to a persistent store so we can easily resume later **will require api changes**
 - "waitUntil" support. this pretty much goes hand and hand with stream resumability
 
