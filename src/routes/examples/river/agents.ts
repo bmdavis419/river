@@ -12,10 +12,6 @@ export const exampleChatAgent = RIVER_SERVER.createAiSdkAgent({
 			content: z.string()
 		})
 	),
-	beforeAgentRun: (input, event) => {
-		console.log(event.route.id);
-		return input;
-	},
 	afterAgentRun: (status) => {
 		console.log('afterAgentRun', status);
 	},
