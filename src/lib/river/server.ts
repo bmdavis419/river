@@ -4,7 +4,7 @@ import type {
 	CreateAgentRouter,
 	CreateAiSdkRiverAgent,
 	CreateCustomRiverAgent,
-	HookForSafeCall,
+	ServerHook,
 	LifecycleHooks,
 	ServerEndpointHandler,
 	ServerSideAgentRunner
@@ -151,7 +151,7 @@ const createServerEndpointHandler: ServerEndpointHandler = (router, hooks) => {
 };
 
 async function callServerHook<T>(
-	hook: HookForSafeCall<T> | undefined,
+	hook: ServerHook<T> | undefined,
 	args: T,
 	globalOnError?: (err: unknown) => Promise<void>
 ) {

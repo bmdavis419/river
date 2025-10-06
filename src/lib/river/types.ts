@@ -81,12 +81,7 @@ type ServerEndpointHandler = <T extends AgentRouter>(
 	hooks?: LifecycleHooks<T>
 ) => { POST: (event: RequestEvent) => Promise<Response> };
 
-type HookWithError<T> = {
-	try: (args: T) => Promise<void> | void;
-	catch: (error: unknown, args: T) => Promise<void> | void;
-};
-
-type HookForSafeCall<T> =
+type ServerHook<T> =
 	| ((args: T) => Promise<void> | void)
 	| {
 			try: (args: T) => Promise<void> | void;
@@ -129,9 +124,9 @@ type AllOnErrorArgs<T extends AgentRouter> = {
 }[keyof T];
 
 type LifecycleHooks<T extends AgentRouter> = {
-	beforeAgentRun?: HookForSafeCall<AllBeforeAgentRunArgs<T>>;
-	afterAgentRun?: HookForSafeCall<AllAfterAgentRunArgs<T>>;
-	onAbort?: HookForSafeCall<AllOnAbortArgs<T>>;
+	beforeAgentRun?: ServerHook<AllBeforeAgentRunArgs<T>>;
+	afterAgentRun?: ServerHook<AllAfterAgentRunArgs<T>>;
+	onAbort?: ServerHook<AllOnAbortArgs<T>>;
 	onError?: (ctx: AllOnErrorArgs<T>) => void | Promise<void>;
 };
 
@@ -184,6 +179,5 @@ export type {
 	ClientSideCaller,
 	AgentRouter,
 	LifecycleHooks,
-	HookWithError,
-	HookForSafeCall
+	ServerHook
 };
