@@ -56,11 +56,9 @@ this project does actually work right now, but it is very early in development a
 
 if you want to try this out, it's now available on npm!
 
-I've built out two examples, one using the ai-sdk and one using a custom stream.
+i've built out two examples, one using the ai-sdk and one using a custom stream.
 
-they're both are fully type safe, are pleasant to work in, and work great.
-
-You can find them <a href="https://github.com/bmdavis419/river-examples" target="_blank">here</a>
+they're both are fully type safe, are pleasant to work in, and work great: <a href="https://github.com/bmdavis419/river-examples" target="_blank">check them out</a>
 
 ### here's a quick getting started guide for custom streams
 
