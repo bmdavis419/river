@@ -1,8 +1,3 @@
-/**
- * TRPC-style error codes used by River to classify errors consistently across
- * server and client. Codes map to HTTP statuses and provide a stable contract
- * for `onError` handlers and serialized error payloads.
- */
 import z from 'zod';
 
 export type RiverErrorCode =
@@ -28,23 +23,23 @@ export type RiverErrorCode =
  * Zod enum for `RiverErrorCode` to enable schema validation on the client.
  */
 export const RiverErrorCodeSchema = z.enum([
-    'BAD_REQUEST',
-    'UNAUTHORIZED',
-    'FORBIDDEN',
-    'NOT_FOUND',
-    'METHOD_NOT_SUPPORTED',
-    'TIMEOUT',
-    'CONFLICT',
-    'PRECONDITION_FAILED',
-    'PAYLOAD_TOO_LARGE',
-    'UNPROCESSABLE_CONTENT',
-    'TOO_MANY_REQUESTS',
-    'CLIENT_CLOSED_REQUEST',
-    'INTERNAL_SERVER_ERROR',
-    'NOT_IMPLEMENTED',
-    'BAD_GATEWAY',
-    'SERVICE_UNAVAILABLE',
-    'GATEWAY_TIMEOUT'
+	'BAD_REQUEST',
+	'UNAUTHORIZED',
+	'FORBIDDEN',
+	'NOT_FOUND',
+	'METHOD_NOT_SUPPORTED',
+	'TIMEOUT',
+	'CONFLICT',
+	'PRECONDITION_FAILED',
+	'PAYLOAD_TOO_LARGE',
+	'UNPROCESSABLE_CONTENT',
+	'TOO_MANY_REQUESTS',
+	'CLIENT_CLOSED_REQUEST',
+	'INTERNAL_SERVER_ERROR',
+	'NOT_IMPLEMENTED',
+	'BAD_GATEWAY',
+	'SERVICE_UNAVAILABLE',
+	'GATEWAY_TIMEOUT'
 ]);
 
 /**
@@ -76,47 +71,47 @@ const HTTP_STATUS_FROM_CODE: Record<RiverErrorCode, number> = {
  * converting non-OK HTTP responses into normalized River errors.
  */
 export const codeFromStatus = (status: number): RiverErrorCode => {
-    switch (status) {
-        case 400:
-            return 'BAD_REQUEST';
-        case 401:
-            return 'UNAUTHORIZED';
-        case 403:
-            return 'FORBIDDEN';
-        case 404:
-            return 'NOT_FOUND';
-        case 405:
-            return 'METHOD_NOT_SUPPORTED';
-        case 408:
-            return 'TIMEOUT';
-        case 409:
-            return 'CONFLICT';
-        case 412:
-            return 'PRECONDITION_FAILED';
-        case 413:
-            return 'PAYLOAD_TOO_LARGE';
-        case 422:
-            return 'UNPROCESSABLE_CONTENT';
-        case 429:
-            return 'TOO_MANY_REQUESTS';
-        case 499:
-            return 'CLIENT_CLOSED_REQUEST';
-        case 500:
-            return 'INTERNAL_SERVER_ERROR';
-        case 501:
-            return 'NOT_IMPLEMENTED';
-        case 502:
-            return 'BAD_GATEWAY';
-        case 503:
-            return 'SERVICE_UNAVAILABLE';
-        case 504:
-            return 'GATEWAY_TIMEOUT';
-        default:
-            // Heuristic defaults: bucket other 4xx to BAD_REQUEST and other 5xx to INTERNAL
-            if (status >= 500) return 'INTERNAL_SERVER_ERROR';
-            if (status >= 400) return 'BAD_REQUEST';
-            return 'INTERNAL_SERVER_ERROR';
-    }
+	switch (status) {
+		case 400:
+			return 'BAD_REQUEST';
+		case 401:
+			return 'UNAUTHORIZED';
+		case 403:
+			return 'FORBIDDEN';
+		case 404:
+			return 'NOT_FOUND';
+		case 405:
+			return 'METHOD_NOT_SUPPORTED';
+		case 408:
+			return 'TIMEOUT';
+		case 409:
+			return 'CONFLICT';
+		case 412:
+			return 'PRECONDITION_FAILED';
+		case 413:
+			return 'PAYLOAD_TOO_LARGE';
+		case 422:
+			return 'UNPROCESSABLE_CONTENT';
+		case 429:
+			return 'TOO_MANY_REQUESTS';
+		case 499:
+			return 'CLIENT_CLOSED_REQUEST';
+		case 500:
+			return 'INTERNAL_SERVER_ERROR';
+		case 501:
+			return 'NOT_IMPLEMENTED';
+		case 502:
+			return 'BAD_GATEWAY';
+		case 503:
+			return 'SERVICE_UNAVAILABLE';
+		case 504:
+			return 'GATEWAY_TIMEOUT';
+		default:
+			// Heuristic defaults: bucket other 4xx to BAD_REQUEST and other 5xx to INTERNAL
+			if (status >= 500) return 'INTERNAL_SERVER_ERROR';
+			if (status >= 400) return 'BAD_REQUEST';
+			return 'INTERNAL_SERVER_ERROR';
+	}
 };
 
 /**
@@ -130,11 +125,11 @@ export const codeFromStatus = (status: number): RiverErrorCode => {
  * - `details`: optional structured metadata (e.g., zod issues)
  */
 export type RiverErrorJSON = {
-    message: string;
-    code: RiverErrorCode;
-    httpStatus?: number;
-    agentId?: string;
-    details?: unknown;
+	message: string;
+	code: RiverErrorCode;
+	httpStatus?: number;
+	agentId?: string;
+	details?: unknown;
 };
 
 /**
@@ -143,56 +138,44 @@ export type RiverErrorJSON = {
  * error payloads with `safeParse`.
  */
 export const RiverErrorJSONSchema = z
-    .object({
-        message: z.string(),
-        code: RiverErrorCodeSchema,
-        httpStatus: z.number().optional(),
-        agentId: z.string().optional(),
-        details: z.unknown().optional()
-    })
-    .passthrough();
+	.object({
+		message: z.string(),
+		code: RiverErrorCodeSchema,
+		httpStatus: z.number().optional(),
+		agentId: z.string().optional(),
+		details: z.unknown().optional()
+	})
+	.loose();
 
-/**
- * RiverError is a tRPC-inspired error type that standardizes error handling
- * across River's server and client. It carries a message, code, optional HTTP
- * status, path, cause, and details. Instances can be serialized/deserialized
- * using `toJSON`/`fromJSON` for transport over HTTP and SSE.
- */
 export class RiverError extends Error {
-    __name__ = 'RiverError';
-    /** Human-readable description of the error. */
-    message: string;
-    /** TRPC-style error code describing the error category. */
-    code: RiverErrorCode;
-    /** Optional HTTP status associated with the error. */
-    httpStatus?: number;
-    /** Optional agent identifier where the error occurred. */
-    agentId?: string;
-    /** Optional raw cause for server-side logging/diagnostics. */
-    cause?: unknown;
-    /** Optional structured details (e.g., validation issues). */
-    details?: unknown;
+	__name__ = 'RiverError';
+	message: string;
+	code: RiverErrorCode;
+	httpStatus?: number;
+	agentId?: string;
+	cause?: unknown;
+	details?: unknown;
 
-    constructor(
-        message: string,
-        options?: {
-            code?: RiverErrorCode;
-            httpStatus?: number;
-            agentId?: string;
-            cause?: unknown;
-            details?: unknown;
-        }
-    ) {
-        super(message);
-        this.name = 'RiverError';
-        this.message = message;
-        const opts = options ?? {};
-        this.code = opts.code ?? 'INTERNAL_SERVER_ERROR';
-        this.httpStatus = opts.httpStatus ?? HTTP_STATUS_FROM_CODE[this.code];
-        this.agentId = opts.agentId;
-        this.cause = opts.cause;
-        this.details = opts.details;
-    }
+	constructor(
+		message: string,
+		options?: {
+			code?: RiverErrorCode;
+			httpStatus?: number;
+			agentId?: string;
+			cause?: unknown;
+			details?: unknown;
+		}
+	) {
+		super(message);
+		this.name = 'RiverError';
+		this.message = message;
+		const opts = options ?? {};
+		this.code = opts.code ?? 'INTERNAL_SERVER_ERROR';
+		this.httpStatus = opts.httpStatus ?? HTTP_STATUS_FROM_CODE[this.code];
+		this.agentId = opts.agentId;
+		this.cause = opts.cause;
+		this.details = opts.details;
+	}
 
 	/**
 	 * Runtime type guard that checks whether a value is a `RiverError`.
@@ -226,25 +209,25 @@ export class RiverError extends Error {
 	 * Convert a `RiverError` instance to a JSON-serializable payload for
 	 * transport over HTTP or SSE.
 	 */
-    static toJSON(err: RiverError): RiverErrorJSON {
-        return {
-            message: err.message,
-            code: err.code,
-            httpStatus: err.httpStatus,
-            agentId: err.agentId,
-            details: err.details
-        };
-    }
+	static toJSON(err: RiverError): RiverErrorJSON {
+		return {
+			message: err.message,
+			code: err.code,
+			httpStatus: err.httpStatus,
+			agentId: err.agentId,
+			details: err.details
+		};
+	}
 
 	/**
 	 * Reconstruct a `RiverError` instance from a serialized JSON payload.
 	 */
-    static fromJSON(json: RiverErrorJSON): RiverError {
-        return new RiverError(json.message, {
-            code: json.code,
-            httpStatus: json.httpStatus,
-            agentId: json.agentId,
-            details: json.details
-        });
-    }
+	static fromJSON(json: RiverErrorJSON): RiverError {
+		return new RiverError(json.message, {
+			code: json.code,
+			httpStatus: json.httpStatus,
+			agentId: json.agentId,
+			details: json.details
+		});
+	}
 }
