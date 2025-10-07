@@ -87,7 +87,7 @@ const createServerSideAgentRunner: ServerSideAgentRunner = (router) => {
 	};
 };
 
-const createServerEndpointHandler: ServerEndpointHandler = (router) => {
+const createServerEndpointHandler: ServerEndpointHandler = (router, options) => {
 	const runner = createServerSideAgentRunner(router);
 	return {
 		POST: async (event) => {
@@ -107,16 +107,26 @@ const createServerEndpointHandler: ServerEndpointHandler = (router) => {
 				input: router[body.agentId].inputSchema
 			});
 
-			const bodyResult = bodySchema.safeParse(body);
-			if (!bodyResult.success) {
-				const error = new RiverError('Invalid body', bodyResult.error);
-				return new Response(JSON.stringify(error), { status: 400 });
+            const bodyResult = bodySchema.safeParse(body);
+            if (!bodyResult.success) {
+                const err = new RiverError('Invalid body', {
+                    code: 'BAD_REQUEST',
+                    httpStatus: 400,
+                    agentId: typeof body?.agentId === 'string' ? body.agentId : undefined,
+                    details: bodyResult.error
+                });
+
+				const payload = options?.errorFormatter
+					? options.errorFormatter(err)
+					: RiverError.toJSON(err);
+				return new Response(JSON.stringify(payload), { status: payload.httpStatus ?? 400 });
 			}
 
 			const stream = new ReadableStream<Uint8Array>({
 				async start(streamController) {
 					// TODO: make it so that you can do some wait until and piping shit in here
 					const internalAgent = router[bodyResult.data.agentId];
+					const encoder = new TextEncoder();
 					try {
 						await runner.runAgent({
 							agentId: bodyResult.data.agentId,
@@ -136,22 +146,40 @@ const createServerEndpointHandler: ServerEndpointHandler = (router) => {
 							if (internalAgent.type === 'ai-sdk' && internalAgent.afterAgentRun) {
 								await internalAgent.afterAgentRun('canceled');
 							}
-						} else {
-							streamController.error(error);
-							if (internalAgent.type === 'ai-sdk' && internalAgent.afterAgentRun) {
-								await internalAgent.afterAgentRun('error');
-							}
-						}
-					} finally {
-						streamController.close();
-					}
-				},
-				cancel(reason) {
-					abortController.abort(reason);
+                        } else {
+                            const normalized = RiverError.fromUnknown(error, 'INTERNAL_SERVER_ERROR');
+                            // attach agentId for consistency
+                            normalized.agentId = bodyResult.data.agentId as string;
+                            // Server-side error hook (tRPC-style)
+                            await options?.onError?.({
+                                error: normalized,
+                                agentId: bodyResult.data.agentId as string,
+                                input: bodyResult.data.input,
+                                event
+                            });
+                            const payload = options?.errorFormatter
+                                ? options.errorFormatter(normalized)
+                                : RiverError.toJSON(normalized);
+                            const sseErrorChunk = `event: error\ndata: ${JSON.stringify(payload)}\n\n`;
+                            streamController.enqueue(encoder.encode(sseErrorChunk));
+                            if (internalAgent.type === 'ai-sdk' && internalAgent.afterAgentRun) {
+                                await internalAgent.afterAgentRun('error');
+                            }
+                        }
+                    } finally {
+                        streamController.close();
+                    }
+                },
+                cancel(reason) {
+                    abortController.abort(reason);
+                }
+            });
+
+			return new Response(stream, {
+				headers: {
+					'Content-Type': 'text/event-stream'
 				}
 			});
-
-			return new Response(stream);
 		}
 	};
 };

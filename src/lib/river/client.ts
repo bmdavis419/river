@@ -5,7 +5,7 @@ import type {
 	InferRiverAgentChunkType,
 	InferRiverAgentInputType
 } from './types.js';
-import { RiverError } from './errors.js';
+import { RiverError, codeFromStatus, RiverErrorJSONSchema } from './errors.js';
 
 type RiverClientCaller<T extends AgentRouter> = {
 	[K in keyof T]: ClientSideCaller<InferRiverAgentChunkType<T[K]>, InferRiverAgentInputType<T[K]>>;
@@ -44,25 +44,68 @@ const createClientCaller = <T extends AgentRouter>(endpoint: string): RiverClien
 							signal: abortController.signal
 						}),
 						(error) => {
-							return new RiverError('Failed to call agent', error);
+							const isAbort = abortController.signal.aborted;
+							const message = isAbort ? 'Request was cancelled' : 'Failed to call agent';
+							const code: RiverError['code'] = isAbort
+								? 'CLIENT_CLOSED_REQUEST'
+								: 'INTERNAL_SERVER_ERROR';
+							return new RiverError(message, {
+								code: code,
+								agentId,
+								cause: error
+							});
 						}
 					);
 
 					if (response.isErr()) {
+						const isAbortErr = response.error.code === 'CLIENT_CLOSED_REQUEST';
+						if (isAbortErr || abortController.signal.aborted) {
+							await onCancel?.();
+							await handleFinish();
+							return;
+						}
 						await onError?.(response.error);
 						await handleFinish();
 						return;
 					}
 
 					if (!response.value.ok) {
-						await onError?.(new RiverError('Failed to call agent', response.value));
+						const jsonResult = await ResultAsync.fromPromise(
+							response.value.json(),
+							(error) =>
+								new RiverError('Failed to parse JSON', {
+									code: codeFromStatus(response.value.status),
+									httpStatus: response.value.status,
+									cause: error,
+									agentId
+								})
+						);
+						if (jsonResult.isErr()) {
+							await onError?.(jsonResult.error);
+						} else {
+							const result = RiverErrorJSONSchema.safeParse(jsonResult.value as unknown);
+							const riverErr = result.success
+								? RiverError.fromJSON(result.data)
+								: new RiverError('Failed to call agent', {
+										code: codeFromStatus(response.value.status),
+										httpStatus: response.value.status,
+										cause: jsonResult.value,
+										agentId
+									});
+							await onError?.(riverErr);
+						}
 						await handleFinish();
 						return;
 					}
 
 					const reader = response.value.body?.getReader();
 					if (!reader) {
-						await onError?.(new RiverError('Failed to get reader', true));
+						await onError?.(
+							new RiverError('Failed to get reader', {
+								code: 'INTERNAL_SERVER_ERROR',
+								agentId
+							})
+						);
 						await handleFinish();
 						return;
 					}
@@ -74,7 +117,10 @@ const createClientCaller = <T extends AgentRouter>(endpoint: string): RiverClien
 
 					while (!done) {
 						const readResult = await ResultAsync.fromPromise(reader.read(), (error) => {
-							return new RiverError('Failed to read stream', error);
+							return new RiverError('Failed to read stream', {
+								code: 'INTERNAL_SERVER_ERROR',
+								cause: error
+							});
 						});
 
 						if (readResult.isErr()) {
@@ -100,17 +146,46 @@ const createClientCaller = <T extends AgentRouter>(endpoint: string): RiverClien
 						buffer = messages.pop() || '';
 
 						for (const message of messages) {
-							if (!message.trim().startsWith('data: ')) continue;
+							const lines = message.split('\n');
+							let eventType: string | null = null;
+							let dataPayload = '';
 
-							const rawData = message.replace('data: ', '').trim();
-
-							let parsed: unknown;
-							try {
-								parsed = JSON.parse(rawData);
-							} catch {
-								parsed = rawData;
+							for (const rawLine of lines) {
+								const line = rawLine.trim();
+								if (!line) continue;
+								if (line.startsWith('event:')) {
+									eventType = line.slice('event:'.length).trim();
+								} else if (line.startsWith('data:')) {
+									dataPayload += line.slice('data:'.length).trim();
+								}
 							}
 
+							if (eventType === 'error') {
+								const result = RiverErrorJSONSchema.safeParse(dataPayload);
+								const riverErr = result.success
+									? RiverError.fromJSON(result.data)
+									: new RiverError('Stream error', {
+											code: 'INTERNAL_SERVER_ERROR',
+											cause: dataPayload,
+											agentId
+										});
+
+								await onError?.(riverErr);
+
+								await reader.cancel();
+								abortController.abort();
+
+								done = true;
+								break;
+							}
+
+							if (!dataPayload) continue;
+							let parsed: unknown;
+							try {
+								parsed = JSON.parse(dataPayload);
+							} catch {
+								parsed = dataPayload;
+							}
 							await onChunk?.(parsed as any, totalChunks);
 							totalChunks += 1;
 						}

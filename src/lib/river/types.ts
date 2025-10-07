@@ -2,6 +2,7 @@ import type { StreamTextResult, TextStreamPart, Tool, ToolSet } from 'ai';
 import z from 'zod';
 import type { RequestEvent } from '@sveltejs/kit';
 import type { RiverError } from './errors.js';
+import type { RiverErrorJSON } from './errors.js';
 
 // AGENTS SECTION
 type AiSdkRiverAgent<T extends ToolSet, Input, InternalInput = Input> = {
@@ -84,6 +85,25 @@ type DecoratedAgentRouter<T extends AgentRouter> = {
 	[K in keyof T]: InferRiverAgent<T[K]>;
 };
 
+type ServerOnErrorHook = (ctx: {
+	/** The normalized River error instance. */
+	error: RiverError;
+	/** The agent identifier (path) that failed. */
+	agentId: string;
+	/** The input provided to the agent call. */
+	input: unknown;
+	/** The request event for additional context. */
+	event: RequestEvent;
+}) => void | Promise<void>;
+
+/** Optional formatter that controls the JSON shape sent to clients. */
+type ServerErrorFormatter = (err: RiverError) => RiverErrorJSON;
+
+type AgentRouterOptions = {
+	onError?: ServerOnErrorHook;
+	errorFormatter?: ServerErrorFormatter;
+};
+
 type CreateAgentRouter = <T extends AgentRouter>(agents: T) => DecoratedAgentRouter<T>;
 
 // SERVER RUNNER SECTION
@@ -100,7 +120,8 @@ type ServerSideAgentRunner = <T extends AgentRouter>(
 };
 
 type ServerEndpointHandler = <T extends AgentRouter>(
-	router: DecoratedAgentRouter<T>
+	router: DecoratedAgentRouter<T>,
+	options?: AgentRouterOptions
 ) => { POST: (event: RequestEvent) => Promise<Response> };
 
 // CLIENT CALLER SECTION
