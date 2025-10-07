@@ -54,11 +54,7 @@ type InferRiverAgent<T> =
 type CreateAiSdkRiverAgent = {
 	<T extends ToolSet, Input>(args: {
 		inputSchema: z.ZodType<Input>;
-		agent: (
-			input: Input,
-			event: RequestEvent,
-			abortSignal: AbortSignal
-		) => StreamTextResult<T, never>;
+		agent: (input: Input, abortSignal: AbortSignal) => StreamTextResult<T, never>;
 		afterAgentRun?: (status: 'success' | 'error' | 'canceled') => Promise<void> | void;
 		beforeAgentRun?: undefined;
 	}): AiSdkRiverAgent<T, Input>;

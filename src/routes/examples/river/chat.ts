@@ -6,8 +6,9 @@ const openrouter = createOpenRouter({
 	apiKey: OPENROUTER_API_KEY
 });
 
-export const chatDemoAiStream = (messages: ModelMessage[]) => {
+export const chatDemoAiStream = (messages: ModelMessage[], abortSignal: AbortSignal) => {
 	return streamText({
+		abortSignal,
 		system:
 			"You are an assistant designed to help answer the user's questions. Always respond in normal text format.",
 		model: openrouter('meta-llama/llama-4-maverick:free'),

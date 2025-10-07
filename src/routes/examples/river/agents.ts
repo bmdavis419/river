@@ -15,8 +15,8 @@ export const exampleChatAgent = RIVER_SERVER.createAiSdkAgent({
 	afterAgentRun: (status) => {
 		console.log('afterAgentRun', status);
 	},
-	agent: (messages) => {
-		return chatDemoAiStream(messages);
+	agent: (messages, abortSignal) => {
+		return chatDemoAiStream(messages, abortSignal);
 	}
 });
 

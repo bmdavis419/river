@@ -211,7 +211,7 @@ export const myRiverClient = RIVER_CLIENT.createClientCaller<MyRiverRouter>('/ap
 - stream resumability support. need to figure out a good way to dump the stream to a persistent store so we can easily resume later **will require api changes**
 - "waitUntil" support. this pretty much goes hand and hand with stream resumability
 
-## docs for: `0.0.4`
+## docs for: `0.0.5`
 
 _see the examples for more detailed usage, these api's will change..._
 
