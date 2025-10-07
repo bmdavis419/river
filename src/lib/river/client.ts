@@ -70,30 +70,25 @@ const createClientCaller = <T extends AgentRouter>(endpoint: string): RiverClien
 					}
 
 					if (!response.value.ok) {
-						const jsonResult = await ResultAsync.fromPromise(
+						const args = {
+							code: codeFromStatus(response.value.status),
+							httpStatus: response.value.status,
+							agentId
+						};
+						const riverErr = await ResultAsync.fromPromise(
 							response.value.json(),
-							(error) =>
-								new RiverError('Failed to parse JSON', {
-									code: codeFromStatus(response.value.status),
-									httpStatus: response.value.status,
-									cause: error,
-									agentId
-								})
+							(error) => new RiverError('Failed to parse JSON', { cause: error, ...args })
+						).match(
+							(json) => {
+								const { success, data, error } = RiverErrorJSONSchema.safeParse(json);
+								return success
+									? RiverError.fromJSON(data)
+									: new RiverError('Unexpected Error Format', { cause: error, ...args });
+							},
+							(error) => error
 						);
-						if (jsonResult.isErr()) {
-							await onError?.(jsonResult.error);
-						} else {
-							const result = RiverErrorJSONSchema.safeParse(jsonResult.value as unknown);
-							const riverErr = result.success
-								? RiverError.fromJSON(result.data)
-								: new RiverError('Failed to call agent', {
-										code: codeFromStatus(response.value.status),
-										httpStatus: response.value.status,
-										cause: jsonResult.value,
-										agentId
-									});
-							await onError?.(riverErr);
-						}
+
+						await onError?.(riverErr);
 						await handleFinish();
 						return;
 					}
