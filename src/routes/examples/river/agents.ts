@@ -1,4 +1,4 @@
-import { RIVER_SERVER } from '$lib/index.js';
+import { RIVER_SERVER, RiverError } from '$lib/index.js';
 import z from 'zod';
 import { demoAiStream } from './garbage.js';
 import { chatDemoAiStream } from './chat.js';
@@ -25,6 +25,10 @@ export const exampleAiSdkAgent = RIVER_SERVER.createAiSdkAgent({
 		prompt: z.string()
 	}),
 	beforeAgentRun: (input) => {
+		/*
+		 * Potential issue (maybe its intended):
+		 * you always have to return the prompt even if you your perforing a side effect?
+		 */
 		return {
 			prompt: input.prompt + ' also are apples purple?'
 		};
