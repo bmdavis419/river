@@ -1,97 +1,47 @@
-import z from 'zod';
-import type {
-	CreateAgentRouter,
-	CreateAiSdkRiverAgent,
-	CreateCustomRiverAgent,
-	ServerEndpointHandler,
-	ServerSideAgentRunner
-} from './types.js';
+import { err, ok, ResultAsync } from 'neverthrow';
+import type { ServerEndpointHandler, ServerSideAgentRunner } from './types.js';
 import { RiverError } from './errors.js';
 
-const createAiSdkAgent: CreateAiSdkRiverAgent = (stuff: any) => {
-	if ('beforeAgentRun' in stuff) {
-		return {
-			agent: stuff.agent,
-			inputSchema: stuff.inputSchema,
-			type: 'ai-sdk' as const,
-			beforeAgentRun: stuff.beforeAgentRun,
-			afterAgentRun: stuff.afterAgentRun
-		};
-	}
-	return {
-		agent: stuff.agent,
-		inputSchema: stuff.inputSchema,
-		type: 'ai-sdk' as const,
-		afterAgentRun: stuff.afterAgentRun
-	};
-};
+const runAgentOnServer: ServerSideAgentRunner = async (
+	agentRunner,
+	activeStream,
+	validatedInput,
+	abortSignal,
+	frameworkMeta
+) => {
+	const { appendChunk: streamAppendChunk, close } = activeStream;
 
-const createCustomAgent: CreateCustomRiverAgent = ({ agent, streamChunkSchema, inputSchema }) => {
-	return {
-		agent,
-		inputSchema,
-		type: 'custom',
-		streamChunkSchema
-	};
-};
-
-const createAgentRouter: CreateAgentRouter = (agents) => {
-	return agents as any;
-};
-
-const createServerSideAgentRunner: ServerSideAgentRunner = (router) => {
-	return {
-		runAgent: async (args) => {
-			const { agentId, input, streamController, abortController, event } = args;
-
-			const encoder = new TextEncoder();
-
-			const agent = router[agentId];
-
-			if (agent.type === 'ai-sdk') {
-				const { agent: aiSdkAgent, beforeAgentRun, afterAgentRun } = agent;
-
-				let internalInput: unknown = input;
-
-				if (beforeAgentRun) {
-					internalInput = await beforeAgentRun(input, event, abortController.signal);
-				}
-
-				const { fullStream } = aiSdkAgent(internalInput, abortController.signal);
-
-				for await (const chunk of fullStream) {
-					if (abortController.signal.aborted) {
-						break;
+	try {
+		console.log('running agent');
+		await agentRunner({
+			input: validatedInput,
+			stream: {
+				appendChunk: (chunk) => {
+					if (abortSignal.aborted) {
+						return;
 					}
 
-					const sseChunk = `data: ${JSON.stringify(chunk)}\n\n`;
-					streamController.enqueue(encoder.encode(sseChunk));
+					streamAppendChunk(chunk);
 				}
+			},
+			agentRunId: 'TODO',
+			meta: frameworkMeta,
+			abortSignal
+		});
+		console.log('agent ran');
+	} catch (e) {
+		return err(new RiverError('Failed to run agent', { cause: e }));
+	} finally {
+		console.log('closing stream');
+		close();
+	}
 
-				return;
-			}
-
-			const { agent: customAgent } = agent;
-
-			await customAgent(input, (chunk) => {
-				if (abortController.signal.aborted) {
-					return;
-				}
-
-				const sseChunk = `data: ${JSON.stringify(chunk)}\n\n`;
-				streamController.enqueue(encoder.encode(sseChunk));
-			});
-
-			return;
-		}
-	};
+	return ok();
 };
 
 const createServerEndpointHandler: ServerEndpointHandler = (router) => {
-	const runner = createServerSideAgentRunner(router);
 	return {
 		POST: async (event) => {
-			const body = await event.request.json();
 			const abortController = new AbortController();
 
 			event.request.signal.addEventListener(
@@ -102,63 +52,70 @@ const createServerEndpointHandler: ServerEndpointHandler = (router) => {
 				{ once: true }
 			);
 
-			const bodySchema = z.object({
-				agentId: z.string(),
-				input: router[body.agentId].inputSchema
-			});
+			const body = await ResultAsync.fromPromise(
+				event.request.json(),
+				(e) => new RiverError('Failed to parse request body', { cause: e })
+			);
 
-			const bodyResult = bodySchema.safeParse(body);
-			if (!bodyResult.success) {
-				const error = new RiverError('Invalid body', bodyResult.error);
-				return new Response(JSON.stringify(error), { status: 400 });
+			if (body.isErr()) {
+				return new Response(JSON.stringify(body.error), { status: 400 });
 			}
 
-			const stream = new ReadableStream<Uint8Array>({
-				async start(streamController) {
-					// TODO: make it so that you can do some wait until and piping shit in here
-					const internalAgent = router[bodyResult.data.agentId];
-					try {
-						await runner.runAgent({
-							agentId: bodyResult.data.agentId,
-							input: bodyResult.data.input,
-							streamController,
-							abortController,
-							event
-						});
-						if (internalAgent.type === 'ai-sdk' && internalAgent.afterAgentRun) {
-							await internalAgent.afterAgentRun(
-								abortController.signal.aborted ? 'canceled' : 'success'
-							);
-						}
-					} catch (error) {
-						if (abortController.signal.aborted) {
-							streamController.close();
-							if (internalAgent.type === 'ai-sdk' && internalAgent.afterAgentRun) {
-								await internalAgent.afterAgentRun('canceled');
-							}
-						} else {
-							streamController.error(error);
-							if (internalAgent.type === 'ai-sdk' && internalAgent.afterAgentRun) {
-								await internalAgent.afterAgentRun('error');
-							}
-						}
-					} finally {
-						streamController.close();
-					}
-				},
-				cancel(reason) {
-					abortController.abort(reason);
-				}
-			});
+			const agentId = body.value.agentId;
 
-			return new Response(stream);
+			if (!agentId) {
+				return new Response(
+					JSON.stringify(new RiverError('Agent ID is required', { cause: 'Agent ID is required' })),
+					{ status: 400 }
+				);
+			}
+
+			const agent = router[agentId];
+
+			if (!agent) {
+				return new Response(
+					JSON.stringify(new RiverError('Agent not found', { cause: 'Agent not found' })),
+					{
+						status: 400
+					}
+				);
+			}
+
+			const initResult = await ResultAsync.fromPromise(
+				agent.stream.storage.init({
+					streamId: agent.stream.streamId,
+					agentRunId: 'TODO'
+				}),
+				(e) => new RiverError('Failed to initialize stream storage', { cause: e })
+			);
+
+			if (initResult.isErr()) {
+				return new Response(JSON.stringify(initResult.error), { status: 400 });
+			}
+
+			const validatedInputResult = await ResultAsync.fromPromise(
+				agent.inputSchema.parseAsync(body.value.input),
+				(e) => new RiverError('Failed to validate input', { cause: e })
+			);
+
+			if (validatedInputResult.isErr()) {
+				return new Response(JSON.stringify(validatedInputResult.error), { status: 400 });
+			}
+
+			runAgentOnServer(
+				agent.runner,
+				initResult.value,
+				validatedInputResult.value,
+				abortController.signal,
+				{
+					event,
+					framework: 'sveltekit'
+				}
+			);
+
+			return new Response(initResult.value.stream);
 		}
 	};
 };
 
-export const RIVER_SERVER = {
-	createAgentRouter,
-	createAiSdkAgent,
-	createCustomAgent,
-	createServerEndpointHandler
-};
+export const RIVER_SERVER = { createServerEndpointHandler };

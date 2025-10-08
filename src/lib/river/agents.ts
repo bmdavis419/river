@@ -14,4 +14,4 @@ const createAgentRouter: CreateAgentRouter = (agents) => {
 	return agents as any;
 };
 
-export { createAgentRouter, createRiverAgent };
+export const RIVER_AGENTS = { createAgentRouter, createRiverAgent };

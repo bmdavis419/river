@@ -35,5 +35,5 @@ export const demoAiStream = (prompt: string, abortSignal: AbortSignal) => {
 		},
 		stopWhen: stepCountIs(5),
 		prompt
-	});
+	}).fullStream;
 };

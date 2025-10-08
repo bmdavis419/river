@@ -1,10 +1,10 @@
-import type { RiverClientCallerInputType } from '$lib/index.js';
 import { riverClient } from '../river/client.js';
 
-type AgentInput = RiverClientCallerInputType<typeof riverClient.chatAgent>;
+// TODO: bring this back...
+// type AgentInput = RiverClientCallerInputType<typeof riverClient.chatAgent>;
 
 export class ChatStore {
-	messages = $state<AgentInput>([
+	messages = $state<{ role: 'assistant' | 'system' | 'user'; content: string }[]>([
 		{
 			role: 'assistant',
 			content: 'Hello, how can I help you today?'
@@ -38,11 +38,9 @@ export class ChatStore {
 		onError: (error) => {
 			console.error(error);
 		},
-		onComplete: (data) => {
+		onSuccess: () => {
 			this.isSending = false;
 			this.currentInput = '';
-			this.lastMessageDuration = data.duration;
-			this.lastMessageChunkCount = data.totalChunks;
 		}
 	});
 

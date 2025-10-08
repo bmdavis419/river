@@ -205,4 +205,4 @@ const createSvelteKitRiverClient = <T extends AgentRouter>(endpoint: string): Ri
 	});
 };
 
-export { createSvelteKitRiverClient };
+export const RIVER_CLIENT = { createSvelteKitRiverClient };

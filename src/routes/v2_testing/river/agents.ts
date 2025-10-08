@@ -1,15 +1,15 @@
-import { V2_DEV } from '$lib/index.js';
+import { RIVER_AGENTS, RIVER_STREAMS } from '$lib/index.js';
 import z from 'zod';
 
-const myFirstV2AgentStream = V2_DEV.RIVER_STREAMS.createRiverStream(
+const myFirstV2AgentStream = RIVER_STREAMS.createRiverStream(
 	'my-first-v2-agent',
-	V2_DEV.RIVER_STREAMS.riverStorageDefaultProvider<{
+	RIVER_STREAMS.riverStorageDefaultProvider<{
 		letter: string;
 		isVowel: boolean;
 	}>()
 );
 
-export const myFirstV2Agent = V2_DEV.RIVER_AGENTS.createRiverAgent({
+export const myFirstV2Agent = RIVER_AGENTS.createRiverAgent({
 	inputSchema: z.object({
 		prompt: z.string()
 	}),

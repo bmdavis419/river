@@ -46,4 +46,4 @@ const createRiverStream: CreateRiverStream = (streamId, storage) => {
 	};
 };
 
-export { createRiverStream, riverStorageDefaultProvider };
+export const RIVER_STREAMS = { createRiverStream, riverStorageDefaultProvider };

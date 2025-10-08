@@ -1,60 +1,108 @@
-import { RIVER_SERVER } from '$lib/index.js';
+import { RIVER_AGENTS, RIVER_SERVER, RIVER_STREAMS } from '$lib/index.js';
 import z from 'zod';
 import { demoAiStream } from './garbage.js';
-import { chatDemoAiStream } from './chat.js';
 
-// in the real world this should be in src/lib/river/agents.ts
+import { OPENROUTER_API_KEY } from '$env/static/private';
+import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+import { streamText, type AsyncIterableStream, type ModelMessage } from 'ai';
 
-export const exampleChatAgent = RIVER_SERVER.createAiSdkAgent({
+const openrouter = createOpenRouter({
+	apiKey: OPENROUTER_API_KEY
+});
+
+// TODO: make this a utility type in library, also need to figure out a really first class way to handle ai sdk streams...
+type InferAiSdkChunkType<T> = T extends AsyncIterableStream<infer ChunkType> ? ChunkType : never;
+
+// CHAT AGENT
+const chatAiSdkCall = (messages: ModelMessage[], abortSignal: AbortSignal) => {
+	return streamText({
+		abortSignal,
+		system:
+			"You are an assistant designed to help answer the user's questions. Always respond in normal text format.",
+		model: openrouter('meta-llama/llama-4-maverick:free'),
+		messages
+	}).fullStream;
+};
+type ChatAiSdkChunkType = InferAiSdkChunkType<ReturnType<typeof chatAiSdkCall>>;
+
+const chatAiSdkAgentStream = RIVER_STREAMS.createRiverStream(
+	'chat-ai-sdk-agent',
+	RIVER_STREAMS.riverStorageDefaultProvider<ChatAiSdkChunkType>()
+);
+
+export const chatAiSdkAgent = RIVER_AGENTS.createRiverAgent({
 	inputSchema: z.array(
 		z.object({
 			role: z.enum(['user', 'assistant', 'system']),
 			content: z.string()
 		})
 	),
-	afterAgentRun: (status) => {
-		console.log('afterAgentRun', status);
-	},
-	agent: (messages, abortSignal) => {
-		return chatDemoAiStream(messages, abortSignal);
+	stream: chatAiSdkAgentStream,
+	runner: async (args) => {
+		const { input, abortSignal, stream } = args;
+
+		const fullStream = chatAiSdkCall(input, abortSignal);
+
+		for await (const chunk of fullStream) {
+			stream.appendChunk(chunk);
+		}
 	}
 });
 
-export const exampleAiSdkAgent = RIVER_SERVER.createAiSdkAgent({
+// EXAMPLE AI SDK AGENT
+
+type ExampleAiSdkChunkType = InferAiSdkChunkType<ReturnType<typeof demoAiStream>>;
+
+const exampleAiSdkAgentStream = RIVER_STREAMS.createRiverStream(
+	'example-ai-sdk-agent',
+	RIVER_STREAMS.riverStorageDefaultProvider<ExampleAiSdkChunkType>()
+);
+
+export const exampleAiSdkAgent = RIVER_AGENTS.createRiverAgent({
 	inputSchema: z.object({
 		prompt: z.string()
 	}),
-	beforeAgentRun: (input) => {
-		return {
-			prompt: input.prompt + ' also are apples purple?'
-		};
-	},
-	afterAgentRun: (status) => {
-		console.log('afterAgentRun', status);
-	},
-	agent: ({ prompt }, abortSignal) => {
-		return demoAiStream(prompt, abortSignal);
+	stream: exampleAiSdkAgentStream,
+	runner: async (args) => {
+		const { input, abortSignal, stream } = args;
+
+		const fullStream = demoAiStream(input.prompt, abortSignal);
+
+		for await (const chunk of fullStream) {
+			stream.appendChunk(chunk);
+		}
 	}
 });
 
-export const exampleCustomAgent = RIVER_SERVER.createCustomAgent({
+// EXAMPLE CUSTOM AGENT
+
+type ExampleCustomChunkType = {
+	character: string;
+	index: number;
+};
+
+const exampleCustomAgentStream = RIVER_STREAMS.createRiverStream(
+	'example-custom-agent',
+	RIVER_STREAMS.riverStorageDefaultProvider<ExampleCustomChunkType>()
+);
+
+export const exampleCustomAgent = RIVER_AGENTS.createRiverAgent({
 	inputSchema: z.object({
 		yourName: z.string()
 	}),
-	streamChunkSchema: z.object({
-		character: z.string(),
-		index: z.number()
-	}),
-	agent: async ({ yourName }, append) => {
-		const characters = yourName.split('');
+	stream: exampleCustomAgentStream,
+	runner: async (args) => {
+		const { input, abortSignal, stream } = args;
+
+		const characters = input.yourName.split('');
 		let index = 0;
-		for (const character of characters) {
+		while (index < characters.length && !abortSignal.aborted) {
 			// yea i vibe coded this regex fight me
-			if (/^[a-zA-Z]$/.test(character)) {
-				append({ character, index });
-				index++;
+			if (/^[a-zA-Z]$/.test(characters[index])) {
+				stream.appendChunk({ character: characters[index], index });
 				await new Promise((resolve) => setTimeout(resolve, 50));
 			}
+			index++;
 		}
 	}
 });

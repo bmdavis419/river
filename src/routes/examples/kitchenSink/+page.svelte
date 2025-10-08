@@ -1,35 +1,30 @@
 <script lang="ts">
-	import type {
-		RiverClientCallerAiSdkToolSetType,
-		RiverClientCallerChunkType,
-		RiverClientCallerToolCallInputType,
-		RiverClientCallerToolCallOutputType
-	} from '$lib/index.js';
 	import { riverClient } from '../river/client.js';
 
 	// these helper types need WAY better names but man they're useful...
-	type AiSdkAgentChunk = RiverClientCallerChunkType<typeof riverClient.exampleAiSdkAgent>;
-	type AiSdkAgentToolSet = RiverClientCallerAiSdkToolSetType<typeof riverClient.exampleAiSdkAgent>;
-	type ImposterToolCallInputType = RiverClientCallerToolCallInputType<
-		AiSdkAgentToolSet,
-		'imposterCheck'
-	>;
-	type ImposterToolCallOutputType = RiverClientCallerToolCallOutputType<
-		AiSdkAgentToolSet,
-		'imposterCheck'
-	>;
+	// TODO: bring this back...
+	// type AiSdkAgentChunk = InferAiSdkChunkType<typeof riverClient.exampleAiSdkAgent>;
+	// type AiSdkAgentToolSet = InferAiSdkToolSetType<typeof riverClient.exampleAiSdkAgent>;
+	// type ImposterToolCallInputType = InferAiSdkToolCallInputType<
+	// 	AiSdkAgentToolSet,
+	// 	'imposterCheck'
+	// >;
+	// type ImposterToolCallOutputType = RiverClientCallerToolCallOutputType<
+	// 	AiSdkAgentToolSet,
+	// 	'imposterCheck'
+	// >;
 
 	let aiSdkStatus = $state<'idle' | 'running' | 'complete' | 'error' | 'cancelled'>('idle');
 	let aiSdkText = $state('');
 	let aiSdkToolCalls = $state<
 		{
 			toolName: 'imposterCheck';
-			input: ImposterToolCallInputType;
-			output: ImposterToolCallOutputType;
+			input: any;
+			output: any;
 		}[]
 	>([]);
 	let aiSdkError = $state<string | null>(null);
-	let aiSdkRawChunks = $state<AiSdkAgentChunk[]>([]);
+	let aiSdkRawChunks = $state<any[]>([]);
 	let aiSdkWasCancelled = $state(false);
 
 	let customStatus = $state<'idle' | 'running' | 'complete' | 'error' | 'cancelled'>('idle');
@@ -81,10 +76,8 @@
 					});
 				}
 			},
-			onComplete: () => {
-				if (!aiSdkWasCancelled) {
-					aiSdkStatus = 'complete';
-				}
+			onSuccess: () => {
+				aiSdkStatus = 'complete';
 			},
 			onError: (error) => {
 				aiSdkStatus = 'error';
@@ -118,11 +111,8 @@
 			onChunk: (chunk) => {
 				customCharacters.push(chunk);
 			},
-			onComplete: ({ totalChunks, duration }) => {
-				if (!customWasCancelled) {
-					customStatus = 'complete';
-					customStats = { totalChunks, duration };
-				}
+			onSuccess: () => {
+				customStatus = 'complete';
 			},
 			onError: (error) => {
 				customStatus = 'error';
