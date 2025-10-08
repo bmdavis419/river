@@ -1,6 +1,6 @@
 import type { CreateRiverStream, RiverStorageProvider, RiverStorageSpecialChunk } from './types.js';
 
-const riverStorageDefaultProvider: RiverStorageProvider<unknown, false> = {
+const riverStorageDefaultProvider = <ChunkType>(): RiverStorageProvider<ChunkType, false> => ({
 	providerId: 'default',
 	isResumable: false,
 	init: async ({ streamId, agentRunId }) => {
@@ -13,16 +13,15 @@ const riverStorageDefaultProvider: RiverStorageProvider<unknown, false> = {
 				streamController = controller;
 
 				const initSpecialChunk: RiverStorageSpecialChunk = {
-					type: 'river_special',
-					data: {
-						specialType: 'stream_start',
-						agentRunId,
-						streamId,
-						isResumable: false
-					}
+					RIVER_SPECIAL_TYPE_KEY: 'stream_start',
+					agentRunId,
+					streamId,
+					isResumable: false
 				};
 
-				streamController.enqueue(encoder.encode(JSON.stringify(initSpecialChunk)));
+				const sseChunk = `data: ${JSON.stringify(initSpecialChunk)}\n\n`;
+
+				streamController.enqueue(encoder.encode(sseChunk));
 			}
 		});
 
@@ -38,7 +37,7 @@ const riverStorageDefaultProvider: RiverStorageProvider<unknown, false> = {
 			stream
 		};
 	}
-};
+});
 
 const createRiverStream: CreateRiverStream = (streamId, storage) => {
 	return {

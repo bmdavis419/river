@@ -3,10 +3,13 @@ import z from 'zod';
 
 const myFirstV2AgentStream = V2_DEV.RIVER_STREAMS.createRiverStream(
 	'my-first-v2-agent',
-	V2_DEV.RIVER_STREAMS.riverStorageDefaultProvider
+	V2_DEV.RIVER_STREAMS.riverStorageDefaultProvider<{
+		letter: string;
+		isVowel: boolean;
+	}>()
 );
 
-const myFirstV2Agent = V2_DEV.RIVER_AGENTS.createRiverAgent({
+export const myFirstV2Agent = V2_DEV.RIVER_AGENTS.createRiverAgent({
 	inputSchema: z.object({
 		prompt: z.string()
 	}),
@@ -14,9 +17,20 @@ const myFirstV2Agent = V2_DEV.RIVER_AGENTS.createRiverAgent({
 	runner: async (args) => {
 		const { input, abortSignal, meta, stream, agentRunId } = args;
 
-		console.log('STARTING A V2 AGENT');
+		console.log('STARTING AGENT', meta.event.route.id, agentRunId);
 
-		// TODO: keep grinding this out...
-		// also need to figure out the typesafety on the stream, probably need to attach a type to the stream itself?
+		const allCharacters = input.prompt.split('');
+		const onlyLetters = allCharacters.filter((char) => /[a-zA-Z]/.test(char));
+
+		let idx = 0;
+		while (idx < onlyLetters.length && !abortSignal.aborted) {
+			console.log('APPENDING CHUNK', onlyLetters[idx]);
+			stream.appendChunk({
+				letter: onlyLetters[idx],
+				isVowel: ['a', 'e', 'i', 'o', 'u'].includes(onlyLetters[idx].toLowerCase())
+			});
+			idx++;
+			await new Promise((resolve) => setTimeout(resolve, 50));
+		}
 	}
 });

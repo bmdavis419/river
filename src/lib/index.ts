@@ -8,7 +8,7 @@ import * as RIVER_STREAMS from './v2_dev/streams.js';
 import * as RIVER_AGENTS from './v2_dev/agents.js';
 import * as RIVER_TYPES from './v2_dev/types.js';
 import * as RIVER_SERVER from './v2_dev/server.js';
-import * as RIVER_CLIENT from './v2_dev/client.js';
+import * as RIVER_CLIENT from './v2_dev/client.svelte.js';
 import * as RIVER_ERRORS from './v2_dev/errors.js';
 
 export const V2_DEV = {

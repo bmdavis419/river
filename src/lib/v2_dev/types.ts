@@ -10,13 +10,10 @@ type RiverFrameworkMeta = {
 };
 
 type RiverStorageSpecialChunk = {
-	type: 'river_special';
-	data: {
-		specialType: 'stream_start';
-		agentRunId: string;
-		streamId: string;
-		isResumable: boolean;
-	};
+	RIVER_SPECIAL_TYPE_KEY: 'stream_start';
+	agentRunId: string;
+	streamId: string;
+	isResumable: boolean;
 };
 
 // VERY MUCH TODO, will be the adapter for s2 or redis or whatever
@@ -45,7 +42,7 @@ type CreateRiverStream = <ChunkType, IsResumable>(
 	storage: RiverStorageProvider<ChunkType, IsResumable>
 ) => RiverStream<ChunkType, IsResumable>;
 
-type RiverAgentRunner<InputType, ChunkType, IsResumable> = (args: {
+type RiverAgentRunner<InputType, ChunkType> = (args: {
 	input: InputType;
 	stream: {
 		appendChunk: (chunk: ChunkType) => void;
@@ -64,7 +61,7 @@ type RiverAgent<InputType, ChunkType, IsResumable> = {
 	};
 	inputSchema: z.ZodType<InputType>;
 	stream: RiverStream<ChunkType, IsResumable>;
-	runner: RiverAgentRunner<InputType, ChunkType, IsResumable>;
+	runner: RiverAgentRunner<InputType, ChunkType>;
 };
 
 type AnyRiverAgent = RiverAgent<any, any, any>;
@@ -92,11 +89,7 @@ type DecoratedAgentRouter<T extends AgentRouter> = {
 type CreateAgentRouter = <T extends AgentRouter>(agents: T) => DecoratedAgentRouter<T>;
 
 type ServerSideAgentRunner = <T extends AnyRiverAgent>(
-	agent: RiverAgentRunner<
-		InferRiverAgentInputType<T>,
-		InferRiverAgentChunkType<T>,
-		InferRiverAgentIsResumable<T>
-	>,
+	agent: RiverAgentRunner<InferRiverAgentInputType<T>, InferRiverAgentChunkType<T>>,
 	activeStream: RiverActiveStream<InferRiverAgentChunkType<T>>,
 	validatedInput: InferRiverAgentInputType<T>,
 	abortSignal: AbortSignal,
@@ -107,7 +100,31 @@ type ServerEndpointHandler = <T extends AgentRouter>(
 	router: DecoratedAgentRouter<T>
 ) => { POST: (event: RequestEvent) => Promise<Response> };
 
-// TODO: new client interfaces...
+type OnSuccessCallback = () => void | Promise<void>;
+type OnErrorCallback = (error: RiverError) => void | Promise<void>;
+type OnChunkCallback<Chunk> = (chunk: Chunk, index: number) => void | Promise<void>;
+type OnStartCallback = () => void | Promise<void>;
+type OnStreamInfoCallback = (data: {
+	agentRunId: string;
+	streamId: string;
+	isResumable: boolean;
+}) => void | Promise<void>;
+type OnCancelCallback = () => void | Promise<void>;
+
+interface ClientSideCaller<Input> {
+	status: 'idle' | 'running' | 'canceled' | 'error' | 'success';
+	start: (input: Input) => void;
+	stop: () => void;
+}
+
+interface ClientSideCallerOptions<Chunk> {
+	onSuccess?: OnSuccessCallback;
+	onError?: OnErrorCallback;
+	onChunk?: OnChunkCallback<Chunk>;
+	onStart?: OnStartCallback;
+	onCancel?: OnCancelCallback;
+	onStreamInfo?: OnStreamInfoCallback;
+}
 
 // HELPERS
 type InferRiverAgent<T extends AnyRiverAgent> =
@@ -127,10 +144,13 @@ type InferRiverAgentIsResumable<T extends AnyRiverAgent> =
 export type {
 	CreateRiverAgent,
 	CreateRiverStream,
+	ClientSideCaller,
+	ClientSideCallerOptions,
 	RiverStorageProvider,
 	RiverStorageSpecialChunk,
 	ServerSideAgentRunner,
 	ServerEndpointHandler,
+	AgentRouter,
 	CreateAgentRouter,
 	RiverAgentRunner,
 	InferRiverAgent,
