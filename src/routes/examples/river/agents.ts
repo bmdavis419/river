@@ -4,7 +4,14 @@ import { demoAiStream } from './garbage.js';
 
 import { OPENROUTER_API_KEY } from '$env/static/private';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
-import { streamText, type AsyncIterableStream, type ModelMessage } from 'ai';
+import {
+	streamText,
+	type AsyncIterableStream,
+	type ModelMessage,
+	type StreamTextResult,
+	type TextStreamPart,
+	type ToolSet
+} from 'ai';
 
 const openrouter = createOpenRouter({
 	apiKey: OPENROUTER_API_KEY
@@ -13,17 +20,35 @@ const openrouter = createOpenRouter({
 // TODO: make this a utility type in library, also need to figure out a really first class way to handle ai sdk streams...
 type InferAiSdkChunkType<T> = T extends AsyncIterableStream<infer ChunkType> ? ChunkType : never;
 
+// AI SDK helper scratch...
+// make it so that you can pass a stream text into some helper which will make it trial for you to send the data from the AI SDK stream to the river stream...
+
+type RiverAiSdkStreamHandler = <StreamTools extends ToolSet>(
+	streamTextCall: () => StreamTextResult<StreamTools, never>,
+	interceptChunk: (
+		curChunk: TextStreamPart<StreamTools>,
+		writeChunk: (chunk: TextStreamPart<StreamTools>) => void
+	) => Promise<void> | void
+) => {};
+
+const riverHandleAiSdkStream = <ChunkType>(stream: AsyncIterableStream<ChunkType>) => {};
+
 // CHAT AGENT
 const chatAiSdkCall = (messages: ModelMessage[], abortSignal: AbortSignal) => {
-	return streamText({
+	const vercelBoi = streamText({
 		abortSignal,
 		system:
 			"You are an assistant designed to help answer the user's questions. Always respond in normal text format.",
 		model: openrouter('meta-llama/llama-4-maverick:free'),
 		messages
-	}).fullStream;
+	});
+
+	return {
+		fullStream: vercelBoi.fullStream
+	};
 };
-type ChatAiSdkChunkType = InferAiSdkChunkType<ReturnType<typeof chatAiSdkCall>>;
+
+type ChatAiSdkChunkType = InferAiSdkChunkType<ReturnType<typeof chatAiSdkCall>['fullStream']>;
 
 const chatAiSdkAgentStream = RIVER_STREAMS.createRiverStream(
 	'chat-ai-sdk-agent',
@@ -41,7 +66,7 @@ export const chatAiSdkAgent = RIVER_AGENTS.createRiverAgent({
 	runner: async (args) => {
 		const { input, abortSignal, stream } = args;
 
-		const fullStream = chatAiSdkCall(input, abortSignal);
+		const { fullStream } = chatAiSdkCall(input, abortSignal);
 
 		for await (const chunk of fullStream) {
 			stream.appendChunk(chunk);
