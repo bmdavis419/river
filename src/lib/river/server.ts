@@ -44,6 +44,8 @@ const createServerEndpointHandler: ServerEndpointHandler = (router) => {
 		POST: async (event) => {
 			const abortController = new AbortController();
 
+			console.log('hit on the server...');
+
 			event.request.signal.addEventListener(
 				'abort',
 				() => {

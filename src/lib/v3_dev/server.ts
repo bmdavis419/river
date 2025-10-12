@@ -62,7 +62,7 @@ export const createSvelteKitServerEndpointHandler: ServerEndpointHandler = (rout
 				input: body.value.input
 			});
 
-			return new Response(runResult);
+			return new Response(runResult.stream);
 		}
 	};
 };

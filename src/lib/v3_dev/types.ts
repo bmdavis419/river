@@ -43,7 +43,7 @@ type RiverStreamRunner<InputType, ChunkType, IsResumable> = (args: {
 	runId: string;
 	meta: RiverFrameworkMeta;
 	abortSignal: AbortSignal;
-}) => ReadableStream<Uint8Array> | Promise<ReadableStream<Uint8Array>>;
+}) => Promise<RiverStorageActiveStream<ChunkType>>;
 
 type RiverStream<InputType, ChunkType, IsResumable> = {
 	_phantom?: {
