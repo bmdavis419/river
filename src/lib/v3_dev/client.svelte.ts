@@ -9,18 +9,18 @@ import type {
 	RiverStorageSpecialChunk
 } from './types.js';
 
-type MakeClientSideCaller<Chunk, Input> = (
+type MakeClientSideCaller<Input, Chunk> = (
 	options: ClientSideCallerOptions<Chunk>
-) => ClientSideCaller<Input>;
+) => ClientSideCaller<Input, Chunk>;
 
 type RiverClient<T extends RiverRouter> = {
 	[K in keyof T]: MakeClientSideCaller<
-		InferRiverStreamChunkType<T[K]>,
-		InferRiverStreamInputType<T[K]>
+		InferRiverStreamInputType<T[K]>,
+		InferRiverStreamChunkType<T[K]>
 	>;
 };
 
-class SvelteKitRiverClientCaller<Chunk, Input> implements ClientSideCaller<Input> {
+class SvelteKitRiverClientCaller<Input, Chunk> implements ClientSideCaller<Input, Chunk> {
 	status = $state<'idle' | 'canceled' | 'error' | 'success' | 'running'>('idle');
 	endpoint: string;
 	agentId: string;
@@ -191,14 +191,14 @@ export const createSvelteKitRiverClient = <T extends RiverRouter>(
 	endpoint: string
 ): RiverClient<T> => {
 	return new Proxy({} as RiverClient<T>, {
-		get: (_target, agentId: string) => {
-			return (options: ClientSideCallerOptions<InferRiverStreamChunkType<T[keyof T]>>) => {
+		get<K extends keyof T>(_target: RiverClient<T>, agentId: K & (string | symbol)) {
+			return (options: ClientSideCallerOptions<InferRiverStreamChunkType<T[K]>>) => {
 				return new SvelteKitRiverClientCaller<
-					InferRiverStreamChunkType<T[keyof T]>,
-					InferRiverStreamInputType<T[keyof T]>
+					InferRiverStreamInputType<T[K]>,
+					InferRiverStreamChunkType<T[K]>
 				>({
 					...options,
-					agentId,
+					agentId: agentId as string,
 					endpoint
 				});
 			};

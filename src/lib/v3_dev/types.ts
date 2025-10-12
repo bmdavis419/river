@@ -115,7 +115,11 @@ type OnStreamInfoCallback = (data: {
 }) => void | Promise<void>;
 type OnCancelCallback = () => void | Promise<void>;
 
-interface ClientSideCaller<Input> {
+interface ClientSideCaller<Input, ChunkType> {
+	_phantom?: {
+		ChunkType: ChunkType;
+		InputType: Input;
+	};
 	status: 'idle' | 'running' | 'canceled' | 'error' | 'success';
 	start: (input: Input) => void;
 	stop: () => void;
