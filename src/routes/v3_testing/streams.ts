@@ -2,7 +2,7 @@ import { defaultRiverStorageProvider } from '$lib/v3_dev/providers.js';
 import { createRiverStream } from '$lib/v3_dev/streams.js';
 import z from 'zod';
 
-const myFirstNewRiverStream = createRiverStream()
+export const myFirstNewRiverStream = createRiverStream()
 	.input(
 		z.object({
 			yourName: z.string()
@@ -12,10 +12,14 @@ const myFirstNewRiverStream = createRiverStream()
 		const { input, initStream } = stuff;
 
 		const activeStream = await initStream(
-			defaultRiverStorageProvider<{
-				isVowel: boolean;
-				letter: string;
-			}>()
+			defaultRiverStorageProvider<
+				{
+					isVowel: boolean;
+					letter: string;
+				},
+				// this needs to eventually be auto-inferred, but for now whatever...
+				false
+			>()
 		);
 
 		const { yourName } = input;

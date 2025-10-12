@@ -1,5 +1,7 @@
 import type { RequestEvent } from '@sveltejs/kit';
+import type { Err, Ok } from 'neverthrow';
 import type z from 'zod';
+import type { RiverError } from './errors.js';
 
 type RiverFrameworkMeta =
 	| {
@@ -94,6 +96,40 @@ type InferRiverStream<T extends AnyRiverStream> =
 		? RiverStream<InputType, ChunkType, IsResumable>
 		: never;
 
+type InferRiverStreamInputType<T extends AnyRiverStream> =
+	T extends RiverStream<infer InputType, any, any> ? InputType : never;
+
+type InferRiverStreamChunkType<T extends AnyRiverStream> =
+	T extends RiverStream<any, infer ChunkType, any> ? ChunkType : never;
+
+type InferRiverStreamIsResumable<T extends AnyRiverStream> =
+	T extends RiverStream<any, any, infer IsResumable> ? IsResumable : never;
+
+type OnSuccessCallback = () => void | Promise<void>;
+type OnErrorCallback = (error: RiverError) => void | Promise<void>;
+type OnChunkCallback<Chunk> = (chunk: Chunk, index: number) => void | Promise<void>;
+type OnStartCallback = () => void | Promise<void>;
+type OnStreamInfoCallback = (data: {
+	runId: string;
+	streamId: string | null;
+}) => void | Promise<void>;
+type OnCancelCallback = () => void | Promise<void>;
+
+interface ClientSideCaller<Input> {
+	status: 'idle' | 'running' | 'canceled' | 'error' | 'success';
+	start: (input: Input) => void;
+	stop: () => void;
+}
+
+interface ClientSideCallerOptions<Chunk> {
+	onSuccess?: OnSuccessCallback;
+	onError?: OnErrorCallback;
+	onChunk?: OnChunkCallback<Chunk>;
+	onStart?: OnStartCallback;
+	onCancel?: OnCancelCallback;
+	onStreamInfo?: OnStreamInfoCallback;
+}
+
 export type {
 	CreateRiverStream,
 	RiverStreamBuilderInit,
@@ -101,5 +137,14 @@ export type {
 	CreateRiverRouter,
 	ServerEndpointHandler,
 	RiverStorageSpecialChunk,
-	RiverStorageProvider
+	RiverStorageProvider,
+	ClientSideCaller,
+	ClientSideCallerOptions,
+	RiverRouter,
+	DecoratedRiverRouter,
+	AnyRiverStream,
+	InferRiverStream,
+	InferRiverStreamInputType,
+	InferRiverStreamChunkType,
+	InferRiverStreamIsResumable
 };

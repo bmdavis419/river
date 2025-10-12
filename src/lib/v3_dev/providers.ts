@@ -1,8 +1,11 @@
 import type { RiverStorageProvider, RiverStorageSpecialChunk } from './types.js';
 
-const defaultRiverStorageProvider = <ChunkType>(): RiverStorageProvider<ChunkType, false> => ({
+const defaultRiverStorageProvider = <
+	ChunkType,
+	IsResumable extends boolean
+>(): RiverStorageProvider<ChunkType, IsResumable> => ({
 	providerId: 'default',
-	isResumable: false,
+	isResumable: false as IsResumable,
 	initStream: async (runId) => {
 		let streamController: ReadableStreamDefaultController<Uint8Array>;
 
