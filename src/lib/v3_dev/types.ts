@@ -35,7 +35,7 @@ type RiverStorageProvider<ChunkType, IsResumable> = {
 	isResumable: IsResumable;
 	initStream: (
 		runId: string,
-		abortSignal: AbortSignal
+		abortController: AbortController
 	) => Promise<RiverStorageActiveStream<ChunkType>>;
 };
 

@@ -10,13 +10,12 @@ export const createSvelteKitServerEndpointHandler: ServerEndpointHandler = (rout
 				(e) => new RiverError('Failed to parse request body', { cause: e })
 			);
 
-			console.log('YOU ARE HERE RIGHT????', event.request.signal);
+			const abortController = new AbortController();
 
 			event.request.signal.addEventListener('abort', () => {
 				console.log('man please come on please please please');
+				abortController.abort();
 			});
-
-			await new Promise((resolve) => setTimeout(resolve, 10000));
 
 			if (body.isErr()) {
 				return new Response(JSON.stringify(body.error), { status: 400 });
@@ -45,7 +44,7 @@ export const createSvelteKitServerEndpointHandler: ServerEndpointHandler = (rout
 			const runId = crypto.randomUUID();
 
 			const initStream = async (provider: RiverStorageProvider<any, any>) => {
-				return await provider.initStream(runId, event.request.signal);
+				return await provider.initStream(runId, abortController);
 			};
 
 			// TODO: error handling
@@ -56,7 +55,7 @@ export const createSvelteKitServerEndpointHandler: ServerEndpointHandler = (rout
 					framework: 'sveltekit',
 					event
 				},
-				abortSignal: event.request.signal,
+				abortSignal: abortController.signal,
 				input: body.value.input
 			});
 

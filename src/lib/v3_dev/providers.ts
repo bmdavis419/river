@@ -6,25 +6,26 @@ const defaultRiverStorageProvider = <
 >(): RiverStorageProvider<ChunkType, IsResumable> => ({
 	providerId: 'default',
 	isResumable: false as IsResumable,
-	initStream: async (runId, abortSignal) => {
+	initStream: async (runId, abortController) => {
 		let streamController: ReadableStreamDefaultController<Uint8Array>;
 
 		const stream = new ReadableStream<Uint8Array>({
 			start(controller) {
 				streamController = controller;
+			},
+			cancel(reason) {
+				abortController.abort(reason);
 			}
 		});
 
 		const encoder = new TextEncoder();
 
 		const safeSendChunk = (chunk: any) => {
-			console.log('TRYING TO SEND CHUNK', chunk, abortSignal.aborted);
-			if (abortSignal.aborted) {
-				return;
-			}
 			try {
-				const sseChunk = `data: ${JSON.stringify(chunk)}\n\n`;
-				streamController.enqueue(encoder.encode(sseChunk));
+				if (!abortController.signal.aborted) {
+					const sseChunk = `data: ${JSON.stringify(chunk)}\n\n`;
+					streamController.enqueue(encoder.encode(sseChunk));
+				}
 			} catch (error) {
 				console.error('failed to send chunk', error);
 			}
@@ -54,7 +55,9 @@ const defaultRiverStorageProvider = <
 
 						safeSendChunk(endChunk);
 
-						streamController.close();
+						if (!abortController.signal.aborted) {
+							streamController.close();
+						}
 					}
 				});
 			}
