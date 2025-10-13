@@ -2,6 +2,7 @@ import type { RequestEvent } from '@sveltejs/kit';
 import type { Err, Ok } from 'neverthrow';
 import type z from 'zod';
 import type { RiverError } from './errors.js';
+import type { TextStreamPart, Tool, ToolSet } from 'ai';
 
 type RiverFrameworkMeta =
 	| {
@@ -32,7 +33,10 @@ type RiverStorageActiveStream<ChunkType> = {
 type RiverStorageProvider<ChunkType, IsResumable> = {
 	providerId: string;
 	isResumable: IsResumable;
-	initStream: (runId: string) => Promise<RiverStorageActiveStream<ChunkType>>;
+	initStream: (
+		runId: string,
+		abortSignal: AbortSignal
+	) => Promise<RiverStorageActiveStream<ChunkType>>;
 };
 
 type RiverStreamRunner<InputType, ChunkType, IsResumable> = (args: {
@@ -134,6 +138,22 @@ interface ClientSideCallerOptions<Chunk> {
 	onStreamInfo?: OnStreamInfoCallback;
 }
 
+// AI SDK HELPERS
+type RiverAiSdkToolSet<T extends ClientSideCaller<any, TextStreamPart<any>>> =
+	T extends ClientSideCaller<any, TextStreamPart<infer Tools>> ? Tools : never;
+
+type RiverAiSdkToolInputType<T extends ToolSet, K extends keyof T> =
+	T[K] extends Tool<infer Input> ? Input : never;
+
+type RiverAiSdkToolOutputType<T extends ToolSet, K extends keyof T> =
+	T[K] extends Tool<infer _, infer Output> ? Output : never;
+
+// NORMAL HELPERS
+type RiverStreamInputType<T extends ClientSideCaller<any, any>> =
+	T extends ClientSideCaller<infer Input, any> ? Input : never;
+type RiverStreamChunkType<T extends ClientSideCaller<any, any>> =
+	T extends ClientSideCaller<any, infer Chunk> ? Chunk : never;
+
 export type {
 	CreateRiverStream,
 	RiverStreamBuilderInit,
@@ -150,5 +170,10 @@ export type {
 	InferRiverStream,
 	InferRiverStreamInputType,
 	InferRiverStreamChunkType,
-	InferRiverStreamIsResumable
+	InferRiverStreamIsResumable,
+	RiverAiSdkToolSet,
+	RiverAiSdkToolInputType,
+	RiverAiSdkToolOutputType,
+	RiverStreamInputType,
+	RiverStreamChunkType
 };

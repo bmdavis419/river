@@ -104,7 +104,7 @@ export const myFirstNewRiverStream = createRiverStream()
 		activeStream.sendData(async ({ appendChunk, close }) => {
 			const letters = yourName.split('');
 			const onlyLetters = letters.filter((letter) => letter.match(/[a-zA-Z]/));
-			for (const letter of onlyLetters) {
+			for await (const letter of onlyLetters) {
 				if (abortSignal.aborted) {
 					break;
 				}

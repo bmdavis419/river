@@ -1,30 +1,20 @@
 <script lang="ts">
-	import type { TextStreamPart, Tool, ToolSet } from 'ai';
 	import { myV3Client } from './client.js';
-	import type { ClientSideCaller } from '$lib/v3_dev/types.js';
+	import type {
+		RiverAiSdkToolSet,
+		RiverAiSdkToolInputType,
+		RiverAiSdkToolOutputType,
+		RiverStreamChunkType
+	} from '$lib/v3_dev/types.js';
 
-	// AI SDK HELPERS
-	type InferAiSdkToolSetType<T extends ClientSideCaller<any, TextStreamPart<any>>> =
-		T extends ClientSideCaller<any, TextStreamPart<infer Tools>> ? Tools : never;
+	// TODO: fix the abort controller logic, once it's canceled it can't be restarted. Also need graceful append chunk error handling on the server side...
 
-	type InferAiSdkToolCallInputType<T extends ToolSet, K extends keyof T> =
-		T[K] extends Tool<infer Input> ? Input : never;
-
-	type InferAiSdkToolCallOutputType<T extends ToolSet, K extends keyof T> =
-		T[K] extends Tool<infer _, infer Output> ? Output : never;
-
-	// NORMAL HELPERS
-	type InferStreamInputType<T extends ClientSideCaller<any, any>> =
-		T extends ClientSideCaller<infer Input, any> ? Input : never;
-	type InferStreamChunkType<T extends ClientSideCaller<any, any>> =
-		T extends ClientSideCaller<any, infer Chunk> ? Chunk : never;
-
-	type QuestionAskerToolSet = InferAiSdkToolSetType<typeof questionAskerTest>;
-	type QuestionAskerToolCallInputType = InferAiSdkToolCallInputType<
+	type QuestionAskerToolSet = RiverAiSdkToolSet<typeof questionAskerTest>;
+	type QuestionAskerToolCallInputType = RiverAiSdkToolInputType<
 		QuestionAskerToolSet,
 		'is_imposter'
 	>;
-	type QuestionAskerToolCallOutputType = InferAiSdkToolCallOutputType<
+	type QuestionAskerToolCallOutputType = RiverAiSdkToolOutputType<
 		QuestionAskerToolSet,
 		'is_imposter'
 	>;
@@ -47,7 +37,7 @@
 				type: 'break';
 		  };
 
-	type VowelCounterDisplay = InferStreamChunkType<typeof vowelCounterTest>;
+	type VowelCounterDisplay = RiverStreamChunkType<typeof vowelCounterTest>;
 
 	const vowelCounterDisplay = $state<VowelCounterDisplay[]>([]);
 

@@ -42,18 +42,6 @@ const runAgentOnServer: ServerSideAgentRunner = async (
 const createServerEndpointHandler: ServerEndpointHandler = (router) => {
 	return {
 		POST: async (event) => {
-			const abortController = new AbortController();
-
-			console.log('hit on the server...');
-
-			event.request.signal.addEventListener(
-				'abort',
-				() => {
-					abortController.abort();
-				},
-				{ once: true }
-			);
-
 			const body = await ResultAsync.fromPromise(
 				event.request.json(),
 				(e) => new RiverError('Failed to parse request body', { cause: e })
@@ -108,7 +96,7 @@ const createServerEndpointHandler: ServerEndpointHandler = (router) => {
 				agent.runner,
 				initResult.value,
 				validatedInputResult.value,
-				abortController.signal,
+				event.request.signal,
 				{
 					event,
 					framework: 'sveltekit'

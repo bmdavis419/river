@@ -166,8 +166,9 @@ class SvelteKitRiverClientCaller<Input, Chunk> implements ClientSideCaller<Input
 	};
 
 	start = (input: Input) => {
-		this.currentAbortController = new AbortController();
-		this.internalFireAgent(input, this.currentAbortController);
+		const bigMan = new AbortController();
+		this.currentAbortController = bigMan;
+		this.internalFireAgent(input, bigMan);
 	};
 	stop = () => {
 		this.currentAbortController?.abort();
