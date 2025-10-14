@@ -63,4 +63,24 @@ const defaultRiverStorageProvider = <ChunkType>(): RiverStorageProvider<ChunkTyp
 	}
 });
 
+// TODO: the beginnings of the resumable streams, has a lot of work to do...
+
+// const s2RiverStorageProvider = <ChunkType>(): RiverStorageProvider<ChunkType, true> => ({
+// 	providerId: 's2',
+// 	isResumable: true,
+// 	initStream: async (runId, abortController) => {
+// 		let streamController: ReadableStreamDefaultController<Uint8Array>;
+
+// 		const s2 = new S2Core({
+// 			accessToken: S2_TOKEN
+// 		});
+
+// 		const stream = new ReadableStream<Uint8Array>({
+// 			start(controller) {
+// 				streamController = controller;
+// 			}
+// 		});
+// 	}
+// });
+
 export const RIVER_PROVIDERS = { defaultRiverStorageProvider };

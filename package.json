@@ -77,10 +77,8 @@
 		"ai"
 	],
 	"dependencies": {
-		"@lucide/svelte": "^0.544.0",
-		"marked": "^16.4.0",
+		"@s2-dev/streamstore": "^0.15.13",
 		"neverthrow": "^8.2.0",
-		"runed": "^0.34.0",
 		"zod": "^4.1.12"
 	}
 }
