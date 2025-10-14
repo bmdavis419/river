@@ -1,6 +1,6 @@
 import { OPENROUTER_API_KEY } from '$env/static/private';
-import { defaultRiverStorageProvider } from '$lib/v3_dev/providers.js';
-import { createRiverStream } from '$lib/v3_dev/streams.js';
+import { RIVER_PROVIDERS } from '$lib/river/providers.js';
+import { RIVER_STREAMS } from '$lib/river/streams.js';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { stepCountIs, streamText, tool, type AsyncIterableStream } from 'ai';
 import z from 'zod';
@@ -9,7 +9,7 @@ const openrouter = createOpenRouter({
 	apiKey: OPENROUTER_API_KEY
 });
 
-export const myAiSdkNewRiverStream = createRiverStream()
+export const myAiSdkNewRiverStream = RIVER_STREAMS.createRiverStream()
 	.input(
 		z.object({
 			prompt: z.string()
@@ -56,7 +56,7 @@ export const myAiSdkNewRiverStream = createRiverStream()
 			T extends AsyncIterableStream<infer U> ? U : never;
 
 		const activeStream = await initStream(
-			defaultRiverStorageProvider<InferAiSdkChunkType<typeof fullStream>>()
+			RIVER_PROVIDERS.defaultRiverStorageProvider<InferAiSdkChunkType<typeof fullStream>>()
 		);
 
 		activeStream.sendData(async ({ appendChunk, close }) => {
@@ -69,7 +69,7 @@ export const myAiSdkNewRiverStream = createRiverStream()
 		return activeStream;
 	});
 
-export const myFirstNewRiverStream = createRiverStream()
+export const myFirstNewRiverStream = RIVER_STREAMS.createRiverStream()
 	.input(
 		z.object({
 			yourName: z.string()
@@ -85,7 +85,7 @@ export const myFirstNewRiverStream = createRiverStream()
 		console.log('agent running', runId);
 
 		const activeStream = await initStream(
-			defaultRiverStorageProvider<{
+			RIVER_PROVIDERS.defaultRiverStorageProvider<{
 				isVowel: boolean;
 				letter: string;
 			}>()

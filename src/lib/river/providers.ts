@@ -63,4 +63,4 @@ const defaultRiverStorageProvider = <ChunkType>(): RiverStorageProvider<ChunkTyp
 	}
 });
 
-export { defaultRiverStorageProvider };
+export const RIVER_PROVIDERS = { defaultRiverStorageProvider };

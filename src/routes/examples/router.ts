@@ -1,7 +1,7 @@
-import { createRiverRouter } from '$lib/v3_dev/streams.js';
+import { RIVER_STREAMS } from '$lib/river/streams.js';
 import { myAiSdkNewRiverStream, myFirstNewRiverStream } from './streams.js';
 
-export const myV3Router = createRiverRouter({
+export const myV3Router = RIVER_STREAMS.createRiverRouter({
 	vowelCounter: myFirstNewRiverStream,
 	questionAsker: myAiSdkNewRiverStream
 });

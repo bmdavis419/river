@@ -1,26 +1,26 @@
 import { ResultAsync } from 'neverthrow';
+import { RiverError } from './errors.js';
 import type {
-	AgentRouter,
 	ClientSideCaller,
 	ClientSideCallerOptions,
-	InferRiverAgentChunkType,
-	InferRiverAgentInputType,
+	InferRiverStreamChunkType,
+	InferRiverStreamInputType,
+	RiverRouter,
 	RiverStorageSpecialChunk
 } from './types.js';
-import { RiverError } from './errors.js';
 
-type MakeClientSideCaller<Chunk, Input> = (
+type MakeClientSideCaller<Input, Chunk> = (
 	options: ClientSideCallerOptions<Chunk>
-) => ClientSideCaller<Input>;
+) => ClientSideCaller<Input, Chunk>;
 
-type RiverClient<T extends AgentRouter> = {
+type RiverClient<T extends RiverRouter> = {
 	[K in keyof T]: MakeClientSideCaller<
-		InferRiverAgentChunkType<T[K]>,
-		InferRiverAgentInputType<T[K]>
+		InferRiverStreamInputType<T[K]>,
+		InferRiverStreamChunkType<T[K]>
 	>;
 };
 
-class SvelteKitRiverClientCaller<Chunk, Input> implements ClientSideCaller<Input> {
+class SvelteKitRiverClientCaller<Input, Chunk> implements ClientSideCaller<Input, Chunk> {
 	status = $state<'idle' | 'canceled' | 'error' | 'success' | 'running'>('idle');
 	endpoint: string;
 	agentId: string;
@@ -141,9 +141,8 @@ class SvelteKitRiverClientCaller<Chunk, Input> implements ClientSideCaller<Input
 					const parsed = JSON.parse(rawData) as RiverStorageSpecialChunk;
 					if (parsed.RIVER_SPECIAL_TYPE_KEY === 'stream_start') {
 						await onStreamInfo?.({
-							agentRunId: parsed.agentRunId,
-							streamId: parsed.streamId,
-							isResumable: parsed.isResumable
+							runId: parsed.runId,
+							streamId: parsed.streamId
 						});
 					}
 					continue;
@@ -167,8 +166,9 @@ class SvelteKitRiverClientCaller<Chunk, Input> implements ClientSideCaller<Input
 	};
 
 	start = (input: Input) => {
-		this.currentAbortController = new AbortController();
-		this.internalFireAgent(input, this.currentAbortController);
+		const bigMan = new AbortController();
+		this.currentAbortController = bigMan;
+		this.internalFireAgent(input, bigMan);
 	};
 	stop = () => {
 		this.currentAbortController?.abort();
@@ -188,16 +188,16 @@ class SvelteKitRiverClientCaller<Chunk, Input> implements ClientSideCaller<Input
 	}
 }
 
-const createSvelteKitRiverClient = <T extends AgentRouter>(endpoint: string): RiverClient<T> => {
+const createSvelteKitRiverClient = <T extends RiverRouter>(endpoint: string): RiverClient<T> => {
 	return new Proxy({} as RiverClient<T>, {
-		get: (_target, agentId: string) => {
-			return (options: ClientSideCallerOptions<InferRiverAgentChunkType<T[keyof T]>>) => {
+		get<K extends keyof T>(_target: RiverClient<T>, agentId: K & (string | symbol)) {
+			return (options: ClientSideCallerOptions<InferRiverStreamChunkType<T[K]>>) => {
 				return new SvelteKitRiverClientCaller<
-					InferRiverAgentChunkType<T[keyof T]>,
-					InferRiverAgentInputType<T[keyof T]>
+					InferRiverStreamInputType<T[K]>,
+					InferRiverStreamChunkType<T[K]>
 				>({
 					...options,
-					agentId,
+					agentId: agentId as string,
 					endpoint
 				});
 			};
@@ -205,4 +205,4 @@ const createSvelteKitRiverClient = <T extends AgentRouter>(endpoint: string): Ri
 	});
 };
 
-export const RIVER_CLIENT = { createSvelteKitRiverClient };
+export const RIVER_CLIENT_SVELTEKIT = { createSvelteKitRiverClient };
