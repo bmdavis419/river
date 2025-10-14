@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { myV3Client } from './client.js';
+	import { myRiverClient } from './client.js';
 	import type {
 		RiverAiSdkToolSet,
 		RiverAiSdkToolInputType,
@@ -41,7 +41,7 @@
 
 	let questionAgentDisplay = $state<QuestionAgentDisplay[]>([]);
 
-	const questionAskerTest = myV3Client.questionAsker({
+	const questionAskerTest = myRiverClient.questionAsker({
 		onStart: () => {
 			questionAgentDisplay = [];
 		},
@@ -88,7 +88,7 @@
 		}
 	});
 
-	const vowelCounterTest = myV3Client.vowelCounter({
+	const vowelCounterTest = myRiverClient.vowelCounter({
 		onStart: () => {
 			vowelCounterDisplay = [];
 		},
@@ -113,6 +113,7 @@
 <div class="mx-auto max-w-2xl p-8">
 	<div class="mb-8 rounded-lg border border-neutral-600 bg-neutral-800 p-6">
 		<h2 class="mb-4 text-xl font-semibold text-white">Test Controls</h2>
+		<a href="/examples/resume" class="text-sm text-neutral-400">Resume S2 stream example</a>
 		<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
 			<div class="flex flex-col gap-3">
 				<h3 class="text-lg font-medium text-white">Vowel Counter</h3>

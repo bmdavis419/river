@@ -1,9 +1,11 @@
-import { OPENROUTER_API_KEY } from '$env/static/private';
+import { OPENROUTER_API_KEY, S2_TOKEN } from '$env/static/private';
 import { RIVER_PROVIDERS } from '$lib/river/providers.js';
 import { RIVER_STREAMS } from '$lib/river/streams.js';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { stepCountIs, streamText, tool, type AsyncIterableStream } from 'ai';
 import z from 'zod';
+
+// TODO: client side resuming, endpoint for getting the stream out of S2, interface for the resume endpoint that goes into the provider
 
 const openrouter = createOpenRouter({
 	apiKey: OPENROUTER_API_KEY
@@ -63,7 +65,34 @@ export const myAiSdkNewRiverStream = RIVER_STREAMS.createRiverStream()
 			for await (const chunk of fullStream) {
 				appendChunk(chunk);
 			}
-			close();
+			await close();
+		});
+
+		return activeStream;
+	});
+
+export const s2StreamFirstTest = RIVER_STREAMS.createRiverStream()
+	.input(
+		z.object({
+			message: z.string()
+		})
+	)
+	.runner(async (stuff) => {
+		const { input, initStream, abortSignal } = stuff;
+
+		const activeStream = await initStream(
+			RIVER_PROVIDERS.s2RiverStorageProvider('river-testing', S2_TOKEN)
+		);
+
+		activeStream.sendData(async ({ appendChunk, close }) => {
+			for await (const chunk of input.message.split('')) {
+				if (abortSignal.aborted) {
+					break;
+				}
+				appendChunk({ letter: chunk });
+				await new Promise((resolve) => setTimeout(resolve, 100));
+			}
+			await close();
 		});
 
 		return activeStream;
@@ -103,7 +132,7 @@ export const myFirstNewRiverStream = RIVER_STREAMS.createRiverStream()
 				appendChunk({ isVowel: !!letter.match(/[aeiou]/i), letter });
 				await new Promise((resolve) => setTimeout(resolve, 100));
 			}
-			close();
+			await close();
 		});
 
 		return activeStream;
