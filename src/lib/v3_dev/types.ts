@@ -25,7 +25,8 @@ type SendDataHelperFunc<ChunkType> = (helpers: {
 	close: () => void;
 }) => Promise<void> | void;
 
-type RiverStorageActiveStream<ChunkType> = {
+type RiverStorageActiveStream<ChunkType, IsResumable> = {
+	isResumable: IsResumable;
 	stream: ReadableStream<Uint8Array>;
 	sendData: (func: SendDataHelperFunc<ChunkType>) => void;
 };
@@ -36,21 +37,22 @@ type RiverStorageProvider<ChunkType, IsResumable> = {
 	initStream: (
 		runId: string,
 		abortController: AbortController
-	) => Promise<RiverStorageActiveStream<ChunkType>>;
+	) => Promise<RiverStorageActiveStream<ChunkType, IsResumable>>;
 };
 
 type RiverStreamRunner<InputType, ChunkType, IsResumable> = (args: {
 	input: InputType;
 	initStream: (
 		streamProvider: RiverStorageProvider<ChunkType, IsResumable>
-	) => Promise<RiverStorageActiveStream<ChunkType>>;
+	) => Promise<RiverStorageActiveStream<ChunkType, IsResumable>>;
 	runId: string;
 	meta: RiverFrameworkMeta;
 	abortSignal: AbortSignal;
-}) => Promise<RiverStorageActiveStream<ChunkType>>;
+}) => Promise<RiverStorageActiveStream<ChunkType, IsResumable>>;
 
 type RiverStream<InputType, ChunkType, IsResumable> = {
 	_phantom?: {
+		inputType: InputType;
 		chunkType: ChunkType;
 		isResumable: IsResumable;
 	};
@@ -64,16 +66,16 @@ type RiverStreamBuilderInit = {
 };
 
 type RiverStreamBuilderRunner<InputType> = {
-	runner: <ChunkType, IsResumable extends boolean>(
+	runner: <ChunkType, IsResumable>(
 		runnerFn: (args: {
 			input: InputType;
 			runId: string;
 			meta: RiverFrameworkMeta;
 			abortSignal: AbortSignal;
-			initStream: <C, R extends boolean>(
+			initStream: <C, R>(
 				streamProvider: RiverStorageProvider<C, R>
-			) => Promise<RiverStorageActiveStream<C>>;
-		}) => Promise<RiverStorageActiveStream<ChunkType>>
+			) => Promise<RiverStorageActiveStream<C, R>>;
+		}) => Promise<RiverStorageActiveStream<ChunkType, IsResumable>>
 	) => RiverStream<InputType, ChunkType, IsResumable>;
 };
 

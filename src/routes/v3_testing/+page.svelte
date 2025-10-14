@@ -7,8 +7,6 @@
 		RiverStreamChunkType
 	} from '$lib/v3_dev/types.js';
 
-	// TODO: fix the abort controller logic, once it's canceled it can't be restarted. Also need graceful append chunk error handling on the server side...
-
 	type QuestionAskerToolSet = RiverAiSdkToolSet<typeof questionAskerTest>;
 	type QuestionAskerToolCallInputType = RiverAiSdkToolInputType<
 		QuestionAskerToolSet,
@@ -39,13 +37,13 @@
 
 	type VowelCounterDisplay = RiverStreamChunkType<typeof vowelCounterTest>;
 
-	const vowelCounterDisplay = $state<VowelCounterDisplay[]>([]);
+	let vowelCounterDisplay = $state<VowelCounterDisplay[]>([]);
 
-	const questionAgentDisplay = $state<QuestionAgentDisplay[]>([]);
+	let questionAgentDisplay = $state<QuestionAgentDisplay[]>([]);
 
 	const questionAskerTest = myV3Client.questionAsker({
 		onStart: () => {
-			console.log('Starting');
+			questionAgentDisplay = [];
 		},
 		onChunk: (chunk) => {
 			if (chunk.type === 'tool-result' && !chunk.dynamic) {
@@ -92,7 +90,7 @@
 
 	const vowelCounterTest = myV3Client.vowelCounter({
 		onStart: () => {
-			console.log('Starting');
+			vowelCounterDisplay = [];
 		},
 		onChunk: (chunk) => {
 			vowelCounterDisplay.push(chunk);

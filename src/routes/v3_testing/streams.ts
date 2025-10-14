@@ -56,11 +56,7 @@ export const myAiSdkNewRiverStream = createRiverStream()
 			T extends AsyncIterableStream<infer U> ? U : never;
 
 		const activeStream = await initStream(
-			defaultRiverStorageProvider<
-				InferAiSdkChunkType<typeof fullStream>,
-				// this needs to eventually be auto-inferred, but for now whatever...
-				false
-			>()
+			defaultRiverStorageProvider<InferAiSdkChunkType<typeof fullStream>>()
 		);
 
 		activeStream.sendData(async ({ appendChunk, close }) => {
@@ -89,14 +85,10 @@ export const myFirstNewRiverStream = createRiverStream()
 		console.log('agent running', runId);
 
 		const activeStream = await initStream(
-			defaultRiverStorageProvider<
-				{
-					isVowel: boolean;
-					letter: string;
-				},
-				// this needs to eventually be auto-inferred, but for now whatever...
-				false
-			>()
+			defaultRiverStorageProvider<{
+				isVowel: boolean;
+				letter: string;
+			}>()
 		);
 
 		const { yourName } = input;
