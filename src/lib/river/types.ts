@@ -1,154 +1,185 @@
-import type { StreamTextResult, TextStreamPart, Tool, ToolSet } from 'ai';
-import z from 'zod';
 import type { RequestEvent } from '@sveltejs/kit';
+import type z from 'zod';
 import type { RiverError } from './errors.js';
+import type { AsyncIterableStream, TextStreamPart, Tool, ToolSet } from 'ai';
 
-// AGENTS SECTION
-type AiSdkRiverAgent<T extends ToolSet, Input, InternalInput = Input> = {
+type RiverFrameworkMeta =
+	| {
+			framework: 'sveltekit';
+			event: RequestEvent;
+	  }
+	| {
+			framework: 'nextjs';
+			req: Request;
+	  };
+
+type RiverStorageSpecialChunk = {
+	RIVER_SPECIAL_TYPE_KEY: 'stream_start' | 'stream_end';
+	runId: string;
+	streamId: string | null;
+};
+
+type SendDataHelperFunc<ChunkType> = (helpers: {
+	appendChunk: (chunk: ChunkType) => void;
+	close: () => void;
+}) => Promise<void> | void;
+
+type RiverStorageActiveStream<ChunkType, IsResumable> = {
+	isResumable: IsResumable;
+	stream: ReadableStream<Uint8Array>;
+	sendData: (func: SendDataHelperFunc<ChunkType>) => void;
+};
+
+type RiverStorageProvider<ChunkType, IsResumable> = {
+	providerId: string;
+	isResumable: IsResumable;
+	initStream: (
+		runId: string,
+		abortController: AbortController
+	) => Promise<RiverStorageActiveStream<ChunkType, IsResumable>>;
+};
+
+type RiverStreamRunner<InputType, ChunkType, IsResumable> = (args: {
+	input: InputType;
+	initStream: (
+		streamProvider: RiverStorageProvider<ChunkType, IsResumable>
+	) => Promise<RiverStorageActiveStream<ChunkType, IsResumable>>;
+	runId: string;
+	meta: RiverFrameworkMeta;
+	abortSignal: AbortSignal;
+}) => Promise<RiverStorageActiveStream<ChunkType, IsResumable>>;
+
+type RiverStream<InputType, ChunkType, IsResumable> = {
 	_phantom?: {
-		chunkType: TextStreamPart<T>;
-		inputType: Input;
-		internalInputType: InternalInput;
+		inputType: InputType;
+		chunkType: ChunkType;
+		isResumable: IsResumable;
 	};
-	beforeAgentRun?: (
-		input: Input,
-		event: RequestEvent,
-		abortSignal: AbortSignal
-	) => Promise<InternalInput> | InternalInput;
-	agent: (input: InternalInput, abortSignal: AbortSignal) => StreamTextResult<T, never>;
-	afterAgentRun?: (status: 'success' | 'error' | 'canceled') => Promise<void> | void;
-	type: 'ai-sdk';
-	inputSchema: z.ZodType<Input>;
-	// ideas for future: resumability pipe, pipe elsewhere in background...
+	inputSchema: z.ZodType<InputType>;
+	runner: RiverStreamRunner<InputType, ChunkType, IsResumable>;
 };
 
-type CustomRiverAgent<T, I> = {
-	_phantom?: {
-		chunkType: T;
-		inputType: I;
-	};
-	type: 'custom';
-	agent: (input: I, appendToStream: (chunk: T) => void) => Promise<void>;
-	streamChunkSchema: z.ZodType<T>;
-	inputSchema: z.ZodType<I>;
-	// ideas for future: resumability pipe, pipe elsewhere in background...
+// NEW BUILDER STUFF
+type RiverStreamBuilderInit = {
+	input: <InputType>(inputSchema: z.ZodType<InputType>) => RiverStreamBuilderRunner<InputType>;
 };
 
-type AnyRiverAgent = AiSdkRiverAgent<any, any, any> | CustomRiverAgent<any, any>;
-
-// INFER HELPER TYPES
-type InferRiverAgentChunkType<T> = T extends { _phantom?: { chunkType: infer Chunk } }
-	? Chunk
-	: never;
-type InferRiverAgentInputType<T> = T extends { _phantom?: { inputType: infer Input } }
-	? Input
-	: never;
-type InferRiverAgent<T> =
-	T extends AiSdkRiverAgent<infer Tools, infer Input, infer InternalInput>
-		? AiSdkRiverAgent<Tools, Input, InternalInput>
-		: T extends CustomRiverAgent<infer Chunk, infer Input>
-			? CustomRiverAgent<Chunk, Input>
-			: never;
-
-// CREATE AGENT FUNCTION TYPES
-type CreateAiSdkRiverAgent = {
-	<T extends ToolSet, Input>(args: {
-		inputSchema: z.ZodType<Input>;
-		agent: (input: Input, abortSignal: AbortSignal) => StreamTextResult<T, never>;
-		afterAgentRun?: (status: 'success' | 'error' | 'canceled') => Promise<void> | void;
-		beforeAgentRun?: undefined;
-	}): AiSdkRiverAgent<T, Input>;
-
-	<T extends ToolSet, Input, InternalInput>(args: {
-		inputSchema: z.ZodType<Input>;
-		beforeAgentRun: (
-			input: Input,
-			event: RequestEvent,
-			abortSignal: AbortSignal
-		) => Promise<InternalInput> | InternalInput;
-		agent: (input: InternalInput, abortSignal: AbortSignal) => StreamTextResult<T, never>;
-		afterAgentRun?: (status: 'success' | 'error' | 'canceled') => Promise<void> | void;
-	}): AiSdkRiverAgent<T, Input, InternalInput>;
+type RiverStreamBuilderRunner<InputType> = {
+	runner: <ChunkType, IsResumable>(
+		runnerFn: (args: {
+			input: InputType;
+			runId: string;
+			meta: RiverFrameworkMeta;
+			abortSignal: AbortSignal;
+			initStream: <C, R>(
+				streamProvider: RiverStorageProvider<C, R>
+			) => Promise<RiverStorageActiveStream<C, R>>;
+		}) => Promise<RiverStorageActiveStream<ChunkType, IsResumable>>
+	) => RiverStream<InputType, ChunkType, IsResumable>;
 };
 
-type CreateCustomRiverAgent = <T, I>(args: {
-	agent: (input: I, appendToStream: (chunk: T) => void) => Promise<void>;
-	streamChunkSchema: z.ZodType<T>;
-	inputSchema: z.ZodType<I>;
-}) => CustomRiverAgent<T, I>;
+type CreateRiverStream = <InputType, ChunkType, IsResumable>() => RiverStreamBuilderInit;
 
-// AGENT ROUTER SECTION
-type AgentRouter = Record<string, AnyRiverAgent>;
+type AnyRiverStream = RiverStream<any, any, any>;
 
-type DecoratedAgentRouter<T extends AgentRouter> = {
-	[K in keyof T]: InferRiverAgent<T[K]>;
+type RiverRouter = Record<string, AnyRiverStream>;
+
+type DecoratedRiverRouter<T extends RiverRouter> = {
+	[K in keyof T]: InferRiverStream<T[K]>;
 };
 
-type CreateAgentRouter = <T extends AgentRouter>(agents: T) => DecoratedAgentRouter<T>;
+type CreateRiverRouter = <T extends RiverRouter>(streams: T) => DecoratedRiverRouter<T>;
 
-// SERVER RUNNER SECTION
-type ServerSideAgentRunner = <T extends AgentRouter>(
-	router: DecoratedAgentRouter<T>
-) => {
-	runAgent: <K extends keyof T>(args: {
-		agentId: K;
-		input: InferRiverAgentInputType<T[K]>;
-		streamController: ReadableStreamDefaultController<Uint8Array>;
-		abortController: AbortController;
-		event: RequestEvent;
-	}) => Promise<void>;
-};
-
-type ServerEndpointHandler = <T extends AgentRouter>(
-	router: DecoratedAgentRouter<T>
+type ServerEndpointHandler = <T extends RiverRouter>(
+	router: DecoratedRiverRouter<T>
 ) => { POST: (event: RequestEvent) => Promise<Response> };
 
-// CLIENT CALLER SECTION
-type OnCompleteCallback = (data: { totalChunks: number; duration: number }) => void | Promise<void>;
+// HELPERS
+
+type InferRiverStream<T extends AnyRiverStream> =
+	T extends RiverStream<infer InputType, infer ChunkType, infer IsResumable>
+		? RiverStream<InputType, ChunkType, IsResumable>
+		: never;
+
+type InferRiverStreamInputType<T extends AnyRiverStream> =
+	T extends RiverStream<infer InputType, any, any> ? InputType : never;
+
+type InferRiverStreamChunkType<T extends AnyRiverStream> =
+	T extends RiverStream<any, infer ChunkType, any> ? ChunkType : never;
+
+type InferRiverStreamIsResumable<T extends AnyRiverStream> =
+	T extends RiverStream<any, any, infer IsResumable> ? IsResumable : never;
+
+type OnSuccessCallback = () => void | Promise<void>;
 type OnErrorCallback = (error: RiverError) => void | Promise<void>;
 type OnChunkCallback<Chunk> = (chunk: Chunk, index: number) => void | Promise<void>;
 type OnStartCallback = () => void | Promise<void>;
+type OnStreamInfoCallback = (data: {
+	runId: string;
+	streamId: string | null;
+}) => void | Promise<void>;
 type OnCancelCallback = () => void | Promise<void>;
 
-type ClientSideCaller<Chunk, Input> = (args: {
-	onComplete?: OnCompleteCallback;
+interface ClientSideCaller<Input, ChunkType> {
+	_phantom?: {
+		ChunkType: ChunkType;
+		InputType: Input;
+	};
+	status: 'idle' | 'running' | 'canceled' | 'error' | 'success';
+	start: (input: Input) => void;
+	stop: () => void;
+}
+
+interface ClientSideCallerOptions<Chunk> {
+	onSuccess?: OnSuccessCallback;
 	onError?: OnErrorCallback;
 	onChunk?: OnChunkCallback<Chunk>;
 	onStart?: OnStartCallback;
 	onCancel?: OnCancelCallback;
-}) => {
-	start: (input: Input) => Promise<void>;
-	stop: () => void;
-};
+	onStreamInfo?: OnStreamInfoCallback;
+}
 
-type RiverClientCallerAiSdkToolSetType<T extends ClientSideCaller<TextStreamPart<any>, any>> =
-	T extends ClientSideCaller<TextStreamPart<infer Tools>, any> ? Tools : never;
+// AI SDK HELPERS
+type RiverAiSdkToolSet<T extends ClientSideCaller<any, TextStreamPart<any>>> =
+	T extends ClientSideCaller<any, TextStreamPart<infer Tools>> ? Tools : never;
 
-type RiverClientCallerToolCallInputType<T extends ToolSet, K extends keyof T> =
+type RiverAiSdkToolInputType<T extends ToolSet, K extends keyof T> =
 	T[K] extends Tool<infer Input> ? Input : never;
 
-type RiverClientCallerToolCallOutputType<T extends ToolSet, K extends keyof T> =
+type RiverAiSdkToolOutputType<T extends ToolSet, K extends keyof T> =
 	T[K] extends Tool<infer _, infer Output> ? Output : never;
 
-type RiverClientCallerChunkType<T extends ClientSideCaller<any, any>> =
-	T extends ClientSideCaller<infer Chunk, any> ? Chunk : never;
+// NORMAL HELPERS
+type RiverStreamInputType<T extends ClientSideCaller<any, any>> =
+	T extends ClientSideCaller<infer Input, any> ? Input : never;
+type RiverStreamChunkType<T extends ClientSideCaller<any, any>> =
+	T extends ClientSideCaller<any, infer Chunk> ? Chunk : never;
 
-type RiverClientCallerInputType<T extends ClientSideCaller<any, any>> =
-	T extends ClientSideCaller<any, infer Input> ? Input : never;
+// STREAM SERVER SIDE HELPERS
+type InferAiSdkChunkType<T extends AsyncIterableStream<any>> =
+	T extends AsyncIterableStream<infer U> ? U : never;
 
 export type {
-	InferRiverAgentChunkType,
-	InferRiverAgentInputType,
-	RiverClientCallerChunkType,
-	RiverClientCallerInputType,
-	RiverClientCallerAiSdkToolSetType,
-	RiverClientCallerToolCallInputType,
-	RiverClientCallerToolCallOutputType,
-	CreateAiSdkRiverAgent,
-	CreateCustomRiverAgent,
-	CreateAgentRouter,
-	ServerSideAgentRunner,
+	CreateRiverStream,
+	RiverStreamBuilderInit,
+	RiverStreamBuilderRunner,
+	CreateRiverRouter,
 	ServerEndpointHandler,
+	RiverStorageSpecialChunk,
+	RiverStorageProvider,
 	ClientSideCaller,
-	AgentRouter
+	ClientSideCallerOptions,
+	RiverRouter,
+	DecoratedRiverRouter,
+	AnyRiverStream,
+	InferRiverStream,
+	InferRiverStreamInputType,
+	InferRiverStreamChunkType,
+	InferRiverStreamIsResumable,
+	RiverAiSdkToolSet,
+	RiverAiSdkToolInputType,
+	RiverAiSdkToolOutputType,
+	RiverStreamInputType,
+	RiverStreamChunkType,
+	InferAiSdkChunkType
 };

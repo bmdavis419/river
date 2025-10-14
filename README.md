@@ -1,4 +1,4 @@
-# river
+# river - 0.2.0
 
 _an experiment by <a href="https://davis7.sh" target="_blank">ben davis</a> that went WAY too far..._
 
@@ -18,15 +18,19 @@ _an experiment by <a href="https://davis7.sh" target="_blank">ben davis</a> that
 		},
 		onChunk: (chunk) => {
 			// full type safety on the chunks
-		},
-		onCancel: () => {
-			console.warn('you cancelled the basic example');
+			console.log(chunk);
 		},
 		onError: (error) => {
-			console.error('error in basic example', error);
+			console.error(error);
 		},
-		onComplete: ({ totalChunks, duration }) => {
-			console.log(`basic example completed in ${duration}ms with ${totalChunks} chunks`);
+		onSuccess: () => {
+			console.log('Success');
+		},
+		onCancel: () => {
+			console.log('Canceled');
+		},
+		onStreamInfo: (streamInfo) => {
+			console.log(streamInfo);
 		}
 	});
 </script>
@@ -77,74 +81,82 @@ bunx sv create river-demo
 bun i @davis7dotsh/river-alpha zod
 ```
 
-2. setup your first agent (this looks slightly different for the <a href="https://github.com/bmdavis419/river-examples/blob/main/basic-aisdk-example/src/lib/river/agents.ts" target="_blank">ai-sdk agents</a>)
+2. setup your first stream
 
 ```ts
-// src/lib/river/agents.ts
-import { RIVER_SERVER } from '@davis7dotsh/river-alpha';
+// src/lib/river/streams.ts
+import { RIVER_STREAMS } from '@davis7dotsh/river-alpha';
 import { z } from 'zod';
 
-export const basicExampleAgent = RIVER_SERVER.createCustomAgent({
-	inputSchema: z.object({
-		message: z.string()
-	}),
-	streamChunkSchema: z.object({
-		letter: z.string(),
-		isVowel: z.boolean()
-	}),
-	// a stream will automatically be created for you when you call this agent
-	// first param is the input, second param is a function to append chunks to the stream
-	// the stream will close when the agent returns
-	agent: async ({ message }, appendChunk) => {
-		const letters = message.split('');
-		const onlyLetters = letters.filter((letter) => /^[a-zA-Z]$/.test(letter));
-		for (let i = 0; i < onlyLetters.length; i++) {
-			const letter = onlyLetters[i];
-			const isVowel = /^[aeiou]$/i.test(letter);
-			appendChunk({ letter, isVowel });
-			await new Promise((resolve) => setTimeout(resolve, 20));
-		}
-	}
-});
+export const myFirstNewRiverStream = RIVER_STREAMS.createRiverStream()
+	.input(
+		z.object({
+			yourName: z.string()
+		})
+	)
+	.runner(async (stuff) => {
+		const { input, initStream, abortSignal } = stuff;
+
+		const activeStream = await initStream(
+			// this is where the type safety happens, the generic type is the chunk type
+			RIVER_PROVIDERS.defaultRiverStorageProvider<{
+				isVowel: boolean;
+				letter: string;
+			}>()
+		);
+
+		const { yourName } = input;
+
+		activeStream.sendData(async ({ appendChunk, close }) => {
+			const letters = yourName.split('');
+			const onlyLetters = letters.filter((letter) => letter.match(/[a-zA-Z]/));
+			for await (const letter of onlyLetters) {
+				if (abortSignal.aborted) {
+					break;
+				}
+				appendChunk({ isVowel: !!letter.match(/[aeiou]/i), letter });
+				await new Promise((resolve) => setTimeout(resolve, 100));
+			}
+			close();
+		});
+
+		return activeStream;
+	});
 ```
 
 3. setup your router
 
 ```ts
 // src/lib/river/router.ts
-import { RIVER_SERVER } from '@davis7dotsh/river-alpha';
-import { basicExampleAgent } from './agents';
+import { RIVER_STREAMS } from '$lib/river/streams.js';
+import { myFirstNewRiverStream } from './streams.js';
 
-export const myRiverRouter = RIVER_SERVER.createAgentRouter({
-	// I recommend having the key not be the name of the agent, this will make the go to definition experience much better
-	basicExample: basicExampleAgent
+export const myFirstRiverRouter = RIVER_STREAMS.createRiverRouter({
+	vowelCounter: myFirstNewRiverStream
 });
 
-// this is to get type inference on the client
-export type MyRiverRouter = typeof myRiverRouter;
+export type MyFirstRiverRouter = typeof myFirstRiverRouter;
 ```
 
 4. setup the endpoint
 
 ```ts
 // src/routes/api/river/+server.ts
-import { myRiverRouter } from '$lib/river/router';
-import { RIVER_SERVER } from '@davis7dotsh/river-alpha';
+import { RIVER_SERVERS } from '$lib/river/server.js';
+import { myFirstRiverRouter } from './router.js';
 
-// this is all it takes, nothing else needed
-// NOTE: this is sveltekit specific, more frameworks coming eventually...
-export const { POST } = RIVER_SERVER.createServerEndpointHandler(myRiverRouter);
+export const { POST } = RIVER_SERVERS.createSvelteKitEndpointHandler(myFirstRiverRouter);
 ```
 
 5. setup the client
 
 ```ts
 // src/lib/river/client.ts
-import { RIVER_CLIENT } from '@davis7dotsh/river-alpha';
-import type { MyRiverRouter } from './router';
+import { RIVER_CLIENT_SVELTEKIT } from '$lib/index.js';
+import type { MyFirstRiverRouter } from './router.js';
 
-// similar to a trpc client, this is how we call the agents from the client
-export const myRiverClient = RIVER_CLIENT.createClientCaller<MyRiverRouter>('/api/river');
+export const myFirstRiverClient =
+	RIVER_CLIENT_SVELTEKIT.createSvelteKitRiverClient<MyFirstRiverRouter>('/examples');
 ```
 
 6. use your agent on the client with a client side caller
@@ -152,46 +164,30 @@ export const myRiverClient = RIVER_CLIENT.createClientCaller<MyRiverRouter>('/ap
 ```svelte
 <!-- src/routes/+page.svelte -->
 <script lang="ts">
-	import { myRiverClient } from '$lib/river/client';
+	import { myFirstRiverClient } from '$lib/river/client.js';
 
 	// this works just like mutations in trpc, it will not actually run until you call start
 	// the callbacks are optional, and will fire when they are defined and the agent starts
-	const basicExampleCaller = myRiverClient.basicExample({
+	const { start, stop, status } = myFirstRiverClient.vowelCounter({
 		onStart: () => {
-			// fires when the agent starts
-			console.log('Starting basic example');
+			console.log('Starting');
 		},
-		onChunk: ({ letter, isVowel }) => {
-			// fires when a chunk is received
-			// will always just have one chunk and is fully type safe
-			console.log(`${letter} is ${isVowel ? 'a vowel' : 'a consonant'}`);
-		},
-		onCancel: () => {
-			// fires when the agent is cancelled/stopped
-			console.log('You cancelled the basic example');
+		onChunk: (chunk) => {
+			console.log(chunk);
 		},
 		onError: (error) => {
-			// fires when the agent errors
-			console.error('Error in basic example', error);
+			console.error(error);
 		},
-		onComplete: ({ totalChunks, duration }) => {
-			// fires when the agent completes
-			// this will ALWAYS fire last, even if the agent was cancelled or errored
-			console.log(`Basic example completed in ${duration}ms with ${totalChunks} chunks`);
+		onSuccess: () => {
+			console.log('Success');
+		},
+		onCancel: () => {
+			console.log('Canceled');
+		},
+		onStreamInfo: (streamInfo) => {
+			console.log(streamInfo);
 		}
 	});
-
-	const handleStart = async () => {
-		// actually starts the agent
-		await basicExampleCaller.start({
-			message: 'This is in fact a message'
-		});
-	};
-
-	const handleCancel = () => {
-		// stops the agent (uses an abort controller under the hood)
-		basicExampleCaller.stop();
-	};
 </script>
 
 <!-- some UI to to consume and start the stream -->
@@ -209,47 +205,42 @@ export const myRiverClient = RIVER_CLIENT.createClientCaller<MyRiverRouter>('/ap
 
 ### FEATURES TODO/IN PROGRESS
 
-- cleanup package deps, currently too many are bundled in
 - more robust error handling on both client and server. want to do something similar to trpc's `TRPCError`
 - stream resumability support. need to figure out a good way to dump the stream to a persistent store so we can easily resume later **will require api changes**
 - "waitUntil" support. this pretty much goes hand and hand with stream resumability
 
-## docs for: `0.0.5`
+## docs for: `0.2.0`
 
 _see the examples for more detailed usage, these api's will change..._
 
-### core primitives
-
-1. **agents**: these come in two flavors, `AiSdkAgent` and `CustomAgent`. The ai-sdk agent is for when you want to use the `streamText` function from the `ai` package. The custom agent is for when you want to do custom stuff and just need a type safe stream (validated with zod)
-2. **agent router**: the is the thing you create on the server which will allow you to call agents. VERY similar to a TRPC router.
-3. **agent client**: this is the client side primitive for actually calling agents. It's fully type safe (grabs types from the router) and feels like the trpc client.
-4. **endpoint handler**: this is something you will basically never touch. it's just a function that returns a POST handler for actually processing your requests
-
 ### helper types
 
-these are a few helper types I made that really help with getting good type safety in your clients. the names are a bit verbose, but at least they're descriptive...
+these are a few helper types that really help with getting good type safety in your clients. the names are a bit verbose, but at least they're descriptive...
 
 ```ts
+// AI SDK SPECIFIC HELPERS (for agents using Vercel AI SDK)
+
 // gets the "tool set" type (a record of tool names to their tool types) for an ai-sdk agent
-type AiSdkAgentToolSet = RiverClientCallerAiSdkToolSetType<typeof riverClient.exampleAiSdkAgent>;
+type AiSdkAgentToolSet = RiverAiSdkToolSet<typeof riverClient.exampleAiSdkAgent>;
 
 // gets the input type for a tool call for an ai-sdk agent. pass in the tool set type and the tool name
-type ImposterToolCallInputType = RiverClientCallerToolCallInputType<
-	AiSdkAgentToolSet,
-	'imposterCheck'
->;
+type ImposterToolCallInputType = RiverAiSdkToolInputType<AiSdkAgentToolSet, 'imposterCheck'>;
 
 // gets the output type for a tool call for an ai-sdk agent. pass in the tool set type and the tool name
-type ImposterToolCallOutputType = RiverClientCallerToolCallOutputType<
-	AiSdkAgentToolSet,
-	'imposterCheck'
->;
+type ImposterToolCallOutputType = RiverAiSdkToolOutputType<AiSdkAgentToolSet, 'imposterCheck'>;
+
+// GENERAL HELPERS (for any agent)
 
 // gets the chunk type for an agent (the thing passed to the onChunk callback)
-type AiSdkAgentChunk = RiverClientCallerChunkType<typeof riverClient.exampleAiSdkAgent>;
+type AgentChunkType = RiverStreamChunkType<typeof riverClient.exampleAgent>;
 
 // gets the input type for an agent (the thing passed to the start function)
-type AiSdkAgentInputType = RiverClientCallerInputType<typeof riverClient.exampleAiSdkAgent>;
+type AgentInputType = RiverStreamInputType<typeof riverClient.exampleAgent>;
+
+// SERVER SIDE HELPERS (for use in your agent definitions)
+
+// infers the chunk type from an AI SDK stream (useful for typing your storage provider)
+type AiSdkChunkType = InferAiSdkChunkType<typeof fullStream>;
 ```
 
 if you have feedback or want to contribute, don't hesitate. best place to reach out is on my twitter <a href="https://x.com/@bmdavis419" target="_blank">@bmdavis419</a>
