@@ -1,7 +1,7 @@
 {
 	"name": "@davis7dotsh/river-alpha",
 	"description": "a trpc like experience for agents and streams",
-	"version": "0.0.5",
+	"version": "0.2.0",
 	"homepage": "https://github.com/bmdavis419/river",
 	"author": "Ben Davis (https://davis7.sh)",
 	"contributors": [
