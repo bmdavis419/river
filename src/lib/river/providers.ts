@@ -6,6 +6,13 @@ import { recordsAppend } from '@s2-dev/streamstore/funcs/recordsAppend.js';
 const defaultRiverStorageProvider = <ChunkType>(): RiverStorageProvider<ChunkType, false> => ({
 	providerId: 'default',
 	isResumable: false,
+	resumeStream: async (runId, abortController) => {
+		return new ReadableStream<Uint8Array>({
+			start(controller) {
+				controller.close();
+			}
+		});
+	},
 	initStream: async (runId, abortController) => {
 		let streamController: ReadableStreamDefaultController<Uint8Array>;
 
@@ -74,6 +81,14 @@ const s2RiverStorageProvider = <ChunkType>(
 ): RiverStorageProvider<ChunkType, true> => ({
 	providerId: 's2',
 	isResumable: true,
+	resumeStream: async (runId, abortController) => {
+		let streamController: ReadableStreamDefaultController<Uint8Array>;
+		return new ReadableStream<Uint8Array>({
+			start(controller) {
+				controller.close();
+			}
+		});
+	},
 	initStream: async (runId, abortController) => {
 		let streamController: ReadableStreamDefaultController<Uint8Array>;
 
@@ -164,7 +179,7 @@ const s2RiverStorageProvider = <ChunkType>(
 							streamId
 						};
 
-						safeSendChunk(endChunk);
+						pendingRecords.push({ body: JSON.stringify(endChunk) });
 
 						if (currentAppendPromise) {
 							await currentAppendPromise;
@@ -174,6 +189,8 @@ const s2RiverStorageProvider = <ChunkType>(
 						}
 
 						if (!abortController.signal.aborted) {
+							const sseChunk = `data: ${JSON.stringify(endChunk)}\n\n`;
+							streamController.enqueue(encoder.encode(sseChunk));
 							streamController.close();
 						}
 					}

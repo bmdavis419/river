@@ -33,6 +33,10 @@ type RiverStorageActiveStream<ChunkType, IsResumable> = {
 type RiverStorageProvider<ChunkType, IsResumable> = {
 	providerId: string;
 	isResumable: IsResumable;
+	resumeStream: (
+		runId: string,
+		abortController: AbortController
+	) => Promise<ReadableStream<Uint8Array>>;
 	initStream: (
 		runId: string,
 		abortController: AbortController
