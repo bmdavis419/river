@@ -119,6 +119,7 @@ type OnStreamInfoCallback = (data: {
 	streamId: string | null;
 }) => void | Promise<void>;
 type OnCancelCallback = () => void | Promise<void>;
+type OnResetCallback = () => void | Promise<void>;
 
 interface ClientSideCaller<Input, ChunkType> {
 	_phantom?: {
@@ -128,6 +129,7 @@ interface ClientSideCaller<Input, ChunkType> {
 	status: 'idle' | 'running' | 'canceled' | 'error' | 'success';
 	start: (input: Input) => void;
 	stop: () => void;
+	reset: () => void;
 }
 
 interface ClientSideCallerOptions<Chunk> {
@@ -137,6 +139,7 @@ interface ClientSideCallerOptions<Chunk> {
 	onStart?: OnStartCallback;
 	onCancel?: OnCancelCallback;
 	onStreamInfo?: OnStreamInfoCallback;
+	onReset?: OnResetCallback;
 }
 
 // AI SDK HELPERS
@@ -181,5 +184,6 @@ export type {
 	RiverAiSdkToolOutputType,
 	RiverStreamInputType,
 	RiverStreamChunkType,
-	InferAiSdkChunkType
+	InferAiSdkChunkType,
+	OnResetCallback
 };

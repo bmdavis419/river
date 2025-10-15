@@ -174,6 +174,13 @@ class SvelteKitRiverClientCaller<Input, Chunk> implements ClientSideCaller<Input
 		this.currentAbortController?.abort();
 	};
 
+	reset = () => {
+		this.currentAbortController?.abort();
+		this.status = 'idle';
+		this.currentAbortController = null;
+		this.lifeCycleCallbacks.onReset?.();
+	};
+
 	constructor(options: ClientSideCallerOptions<Chunk> & { agentId: string; endpoint: string }) {
 		this.lifeCycleCallbacks = {
 			onSuccess: options.onSuccess,
@@ -181,7 +188,8 @@ class SvelteKitRiverClientCaller<Input, Chunk> implements ClientSideCaller<Input
 			onChunk: options.onChunk,
 			onStart: options.onStart,
 			onCancel: options.onCancel,
-			onStreamInfo: options.onStreamInfo
+			onStreamInfo: options.onStreamInfo,
+			onReset: options.onReset
 		};
 		this.endpoint = options.endpoint;
 		this.agentId = options.agentId;

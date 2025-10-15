@@ -37,9 +37,23 @@
 
 	type VowelCounterDisplay = RiverStreamChunkType<typeof vowelCounterTest>;
 
-	let vowelCounterDisplay = $state<VowelCounterDisplay[]>([]);
+	type Toast = {
+		id: string;
+		type: 'success' | 'error';
+		message: string;
+	};
 
+	let vowelCounterDisplay = $state<VowelCounterDisplay[]>([]);
 	let questionAgentDisplay = $state<QuestionAgentDisplay[]>([]);
+	let toasts = $state<Toast[]>([]);
+
+	const addToast = (type: 'success' | 'error', message: string) => {
+		const id = Math.random().toString(36).slice(2);
+		toasts.push({ id, type, message });
+		setTimeout(() => {
+			toasts = toasts.filter((t) => t.id !== id);
+		}, 5000);
+	};
 
 	const questionAskerTest = myRiverClient.questionAsker({
 		onStart: () => {
@@ -76,15 +90,20 @@
 		},
 		onError: (error) => {
 			console.error(error);
+			addToast('error', `Question Asker Error: ${error.message}`);
 		},
 		onSuccess: () => {
 			console.log('Success');
+			addToast('success', 'Question Asker completed successfully');
 		},
 		onCancel: () => {
 			console.log('Canceled');
 		},
 		onStreamInfo: (streamInfo) => {
 			console.log(streamInfo);
+		},
+		onReset: () => {
+			questionAgentDisplay = [];
 		}
 	});
 
@@ -97,15 +116,20 @@
 		},
 		onError: (error) => {
 			console.error(error);
+			addToast('error', `Vowel Counter Error: ${error.message}`);
 		},
 		onSuccess: () => {
 			console.log('Success');
+			addToast('success', 'Vowel Counter completed successfully');
 		},
 		onCancel: () => {
 			console.log('Canceled');
 		},
 		onStreamInfo: (streamInfo) => {
 			console.log(streamInfo);
+		},
+		onReset: () => {
+			vowelCounterDisplay = [];
 		}
 	});
 </script>
@@ -149,6 +173,14 @@
 							Stop
 						</button>
 					{/if}
+					{#if vowelCounterTest.status !== 'idle' && vowelCounterTest.status !== 'running'}
+						<button
+							class="rounded-md bg-neutral-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-neutral-600"
+							onclick={() => vowelCounterTest.reset()}
+						>
+							Reset
+						</button>
+					{/if}
 				</div>
 			</div>
 
@@ -184,6 +216,14 @@
 							onclick={() => questionAskerTest.stop()}
 						>
 							Stop
+						</button>
+					{/if}
+					{#if questionAskerTest.status !== 'idle' && questionAskerTest.status !== 'running'}
+						<button
+							class="rounded-md bg-neutral-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-neutral-600"
+							onclick={() => questionAskerTest.reset()}
+						>
+							Reset
 						</button>
 					{/if}
 				</div>
@@ -254,6 +294,21 @@
 					</div>
 				</div>
 			{/if}
+		</div>
+	{/if}
+
+	{#if toasts.length > 0}
+		<div class="fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 flex-col gap-2">
+			{#each toasts as toast}
+				<div
+					class="rounded-md border border-neutral-600 bg-neutral-800 p-3 text-white {toast.type ===
+					'success'
+						? 'border-green-600 bg-green-950'
+						: 'border-red-600 bg-red-950'}"
+				>
+					{toast.message}
+				</div>
+			{/each}
 		</div>
 	{/if}
 </div>
