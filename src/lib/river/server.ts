@@ -2,28 +2,63 @@ import { ResultAsync } from 'neverthrow';
 import type { RiverStorageProvider, ServerEndpointHandler } from './types.js';
 import { RiverError } from './errors.js';
 
-export const createSvelteKitEndpointHandler: ServerEndpointHandler = (router) => {
+export const createSvelteKitEndpointHandler: ServerEndpointHandler = ({
+	streams,
+	resumableProviders
+}) => {
 	return {
 		GET: async (event) => {
 			const { searchParams } = event.url;
 
-			const runId = searchParams.get('runId');
-			const streamId = searchParams.get('streamId');
+			const resumptionTokenStr = searchParams.get('resumeKey');
 
-			if (!runId || !streamId) {
+			if (!resumptionTokenStr) {
 				return new Response(
 					JSON.stringify(
-						new RiverError('Run ID and stream ID are required', {
-							cause: 'Run ID and stream ID are required'
+						new RiverError('Resume key is required', {
+							cause: 'Resume key is required'
 						})
 					),
 					{ status: 400 }
 				);
 			}
 
-			const stream = router[streamId];
+			let resumptionToken;
+			try {
+				const decodedStr = atob(resumptionTokenStr);
+				resumptionToken = JSON.parse(decodedStr);
+			} catch {
+				return new Response(
+					JSON.stringify(
+						new RiverError('Invalid resume key', {
+							cause: 'Invalid resume key'
+						})
+					),
+					{ status: 400 }
+				);
+			}
 
-			return new Response('Hello, world!');
+			const { providerId, runId, streamId } = resumptionToken;
+
+			if (!resumableProviders || !resumableProviders[providerId]) {
+				return new Response(
+					JSON.stringify(new RiverError('Provider not found', { cause: 'Provider not found' })),
+					{ status: 400 }
+				);
+			}
+
+			const provider = resumableProviders[providerId];
+
+			const abortController = new AbortController();
+
+			event.request.signal.addEventListener('abort', () => {
+				abortController.abort();
+			});
+
+			// TODO: error handling
+			const resumedStream = await provider.resumeStream(runId, abortController, streamId);
+
+			return new Response(resumedStream);
 		},
 		POST: async (event) => {
 			const body = await ResultAsync.fromPromise(
@@ -34,7 +69,6 @@ export const createSvelteKitEndpointHandler: ServerEndpointHandler = (router) =>
 			const abortController = new AbortController();
 
 			event.request.signal.addEventListener('abort', () => {
-				console.log('man please come on please please please');
 				abortController.abort();
 			});
 
@@ -53,7 +87,7 @@ export const createSvelteKitEndpointHandler: ServerEndpointHandler = (router) =>
 				);
 			}
 
-			const stream = router[streamKey];
+			const stream = streams[streamKey];
 
 			if (!stream) {
 				return new Response(

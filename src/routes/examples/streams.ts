@@ -81,7 +81,7 @@ export const s2StreamFirstTest = RIVER_STREAMS.createRiverStream()
 		const { input, initStream, abortSignal } = stuff;
 
 		const activeStream = await initStream(
-			RIVER_PROVIDERS.s2RiverStorageProvider('river-testing', S2_TOKEN)
+			RIVER_PROVIDERS.s2RiverStorageProvider(S2_TOKEN, 'river-testing')
 		);
 
 		activeStream.sendData(async ({ appendChunk, close }) => {

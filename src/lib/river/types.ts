@@ -13,9 +13,16 @@ type RiverFrameworkMeta =
 			req: Request;
 	  };
 
+type RiverResumptionToken = {
+	providerId: string;
+	runId: string;
+	streamId: string;
+};
+
 type RiverStorageSpecialChunk = {
 	RIVER_SPECIAL_TYPE_KEY: 'stream_start' | 'stream_end';
 	runId: string;
+	resumptionToken?: RiverResumptionToken;
 };
 
 type SendDataHelperFunc<ChunkType> = (helpers: {
@@ -34,7 +41,8 @@ type RiverStorageProvider<ChunkType, IsResumable> = {
 	isResumable: IsResumable;
 	resumeStream: (
 		runId: string,
-		abortController: AbortController
+		abortController: AbortController,
+		streamId: string
 	) => Promise<ReadableStream<Uint8Array>>;
 	initStream: (
 		runId: string,
@@ -93,8 +101,13 @@ type DecoratedRiverRouter<T extends RiverRouter> = {
 
 type CreateRiverRouter = <T extends RiverRouter>(streams: T) => DecoratedRiverRouter<T>;
 
+type RiverRouterWithProviders<T extends RiverRouter> = {
+	streams: DecoratedRiverRouter<T>;
+	resumableProviders?: Record<string, RiverStorageProvider<any, any>>;
+};
+
 type ServerEndpointHandler = <T extends RiverRouter>(
-	router: DecoratedRiverRouter<T>
+	router: RiverRouterWithProviders<T>
 ) => {
 	POST: (event: RequestEvent) => Promise<Response>;
 	GET: (event: RequestEvent) => Promise<Response>;
@@ -120,7 +133,7 @@ type OnSuccessCallback = () => void | Promise<void>;
 type OnErrorCallback = (error: RiverError) => void | Promise<void>;
 type OnChunkCallback<Chunk> = (chunk: Chunk, index: number) => void | Promise<void>;
 type OnStartCallback = () => void | Promise<void>;
-type OnStreamInfoCallback = (data: { runId: string }) => void | Promise<void>;
+type OnStreamInfoCallback = (data: { runId: string; resumeKey: string }) => void | Promise<void>;
 type OnCancelCallback = () => void | Promise<void>;
 type OnResetCallback = () => void | Promise<void>;
 
@@ -131,6 +144,7 @@ interface ClientSideCaller<Input, ChunkType> {
 	};
 	status: 'idle' | 'running' | 'canceled' | 'error' | 'success';
 	start: (input: Input) => void;
+	resume: (resumeKey: string) => void;
 	stop: () => void;
 	reset: () => void;
 }
@@ -172,7 +186,9 @@ export type {
 	CreateRiverRouter,
 	ServerEndpointHandler,
 	RiverStorageSpecialChunk,
+	RiverResumptionToken,
 	RiverStorageProvider,
+	RiverRouterWithProviders,
 	ClientSideCaller,
 	ClientSideCallerOptions,
 	RiverRouter,

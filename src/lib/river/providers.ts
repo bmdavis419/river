@@ -73,15 +73,13 @@ const defaultRiverStorageProvider = <ChunkType>(): RiverStorageProvider<ChunkTyp
 	}
 });
 
-// TODO: the beginnings of the resumable streams, has a lot of work to do...
-
 const s2RiverStorageProvider = <ChunkType>(
-	streamId: string,
-	accessToken: string
+	accessToken: string,
+	streamId?: string
 ): RiverStorageProvider<ChunkType, true> => ({
 	providerId: 's2',
 	isResumable: true,
-	resumeStream: async (runId, abortController) => {
+	resumeStream: async (runId, abortController, s2StreamId) => {
 		const s2 = new S2Core({
 			accessToken
 		});
@@ -103,7 +101,7 @@ const s2RiverStorageProvider = <ChunkType>(
 						s2,
 						{
 							stream: runId,
-							s2Basin: streamId,
+							s2Basin: s2StreamId,
 							seqNum: 0
 						},
 						{
@@ -160,18 +158,17 @@ const s2RiverStorageProvider = <ChunkType>(
 								if (!abortController.signal.aborted) {
 									const sseData = `data: ${record.body}\n\n`;
 									streamController.enqueue(encoder.encode(sseData));
+
+									try {
+										const parsedRecord = JSON.parse(record.body);
+										if (parsedRecord.RIVER_SPECIAL_TYPE_KEY === 'stream_end') {
+											shouldContinue = false;
+											break;
+										}
+									} catch {}
 								}
 							}
 						}
-					}
-
-					if (!abortController.signal.aborted) {
-						const endChunk: RiverStorageSpecialChunk = {
-							RIVER_SPECIAL_TYPE_KEY: 'stream_end',
-							runId
-						};
-						const sseData = `data: ${JSON.stringify(endChunk)}\n\n`;
-						streamController.enqueue(encoder.encode(sseData));
 					}
 				} catch (error) {
 					if (error instanceof Error && error.name === 'AbortError') {
@@ -207,6 +204,10 @@ const s2RiverStorageProvider = <ChunkType>(
 		return stream;
 	},
 	initStream: async (runId, abortController) => {
+		if (!streamId) {
+			throw new Error('s2StreamId is required for S2 resumable streams');
+		}
+
 		let streamController: ReadableStreamDefaultController<Uint8Array>;
 
 		const s2 = new S2Core({
@@ -318,9 +319,16 @@ const s2RiverStorageProvider = <ChunkType>(
 			isResumable: true,
 			stream,
 			sendData: (innerSendFunc) => {
+				const resumptionToken = {
+					providerId: 's2',
+					runId,
+					streamId
+				};
+
 				const startChunk: RiverStorageSpecialChunk = {
 					RIVER_SPECIAL_TYPE_KEY: 'stream_start',
-					runId
+					runId,
+					resumptionToken
 				};
 
 				safeSendChunk(startChunk);
