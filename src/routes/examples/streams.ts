@@ -105,13 +105,7 @@ export const myFirstNewRiverStream = RIVER_STREAMS.createRiverStream()
 		})
 	)
 	.runner(async (stuff) => {
-		const { input, initStream, abortSignal, meta, runId } = stuff;
-
-		if (meta.framework === 'sveltekit') {
-			console.log('agent running on sveltekit', meta.event.url);
-		}
-
-		console.log('agent running', runId);
+		const { input, initStream, abortSignal } = stuff;
 
 		const activeStream = await initStream(
 			RIVER_PROVIDERS.defaultRiverStorageProvider<{

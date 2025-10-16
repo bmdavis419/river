@@ -2,6 +2,8 @@ import { S2Core } from '@s2-dev/streamstore/core.js';
 import type { RiverStorageProvider, RiverStorageSpecialChunk } from './types.js';
 import { streamsCreateStream } from '@s2-dev/streamstore/funcs/streamsCreateStream.js';
 import { recordsAppend } from '@s2-dev/streamstore/funcs/recordsAppend.js';
+import { recordsRead } from '@s2-dev/streamstore/funcs/recordsRead.js';
+import { ResultAsync } from 'neverthrow';
 
 const defaultRiverStorageProvider = <ChunkType>(): RiverStorageProvider<ChunkType, false> => ({
 	providerId: 'default',
@@ -44,8 +46,7 @@ const defaultRiverStorageProvider = <ChunkType>(): RiverStorageProvider<ChunkTyp
 			sendData: (innerSendFunc) => {
 				const startChunk: RiverStorageSpecialChunk = {
 					RIVER_SPECIAL_TYPE_KEY: 'stream_start',
-					runId,
-					streamId: null
+					runId
 				};
 
 				safeSendChunk(startChunk);
@@ -57,8 +58,7 @@ const defaultRiverStorageProvider = <ChunkType>(): RiverStorageProvider<ChunkTyp
 					close: async () => {
 						const endChunk: RiverStorageSpecialChunk = {
 							RIVER_SPECIAL_TYPE_KEY: 'stream_end',
-							runId,
-							streamId: null
+							runId
 						};
 
 						safeSendChunk(endChunk);
@@ -82,12 +82,129 @@ const s2RiverStorageProvider = <ChunkType>(
 	providerId: 's2',
 	isResumable: true,
 	resumeStream: async (runId, abortController) => {
+		const s2 = new S2Core({
+			accessToken
+		});
+
 		let streamController: ReadableStreamDefaultController<Uint8Array>;
-		return new ReadableStream<Uint8Array>({
-			start(controller) {
-				controller.close();
+		let reader: ReadableStreamDefaultReader<any> | null = null;
+
+		const stream = new ReadableStream<Uint8Array>({
+			async start(controller) {
+				streamController = controller;
+
+				if (abortController.signal.aborted) {
+					controller.close();
+					return;
+				}
+
+				const result = await ResultAsync.fromPromise(
+					recordsRead(
+						s2,
+						{
+							stream: runId,
+							s2Basin: streamId,
+							seqNum: 0
+						},
+						{
+							signal: abortController.signal,
+							headers: {
+								Accept: 'text/event-stream'
+							}
+						}
+					),
+					(error) => new Error(`Failed to read records from S2: ${error}`)
+				);
+
+				if (result.isErr()) {
+					console.error(`[${runId}] error reading records from S2:`, result.error);
+					controller.error(result.error);
+					return;
+				}
+
+				const recordsReadResult = result.value;
+				if (recordsReadResult.error) {
+					const error = new Error(`S2 returned error: ${recordsReadResult.error.message}`);
+					console.error(`[${runId}] ${error.message}`);
+					controller.error(error);
+					return;
+				}
+
+				if (!(recordsReadResult.value instanceof ReadableStream)) {
+					const error = new Error('S2 did not return a stream');
+					console.error(`[${runId}] ${error.message}`);
+					controller.error(error);
+					return;
+				}
+
+				const externalStream = recordsReadResult.value;
+				reader = externalStream.getReader();
+				const encoder = new TextEncoder();
+
+				let shouldContinue = true;
+
+				try {
+					while (shouldContinue && !abortController.signal.aborted) {
+						const { done, value } = await reader.read();
+
+						if (done) {
+							console.log(`[${runId}] S2 stream ended`);
+							shouldContinue = false;
+							continue;
+						}
+
+						if (value.event === 'batch' && value.data?.records) {
+							const records = value.data.records;
+
+							for (const record of records) {
+								if (!abortController.signal.aborted) {
+									const sseData = `data: ${record.body}\n\n`;
+									streamController.enqueue(encoder.encode(sseData));
+								}
+							}
+						}
+					}
+
+					if (!abortController.signal.aborted) {
+						const endChunk: RiverStorageSpecialChunk = {
+							RIVER_SPECIAL_TYPE_KEY: 'stream_end',
+							runId
+						};
+						const sseData = `data: ${JSON.stringify(endChunk)}\n\n`;
+						streamController.enqueue(encoder.encode(sseData));
+					}
+				} catch (error) {
+					if (error instanceof Error && error.name === 'AbortError') {
+						console.log(`[${runId}] resume stream aborted by client`);
+					} else {
+						console.error(`[${runId}] error during resume stream:`, error);
+						if (!abortController.signal.aborted) {
+							controller.error(error instanceof Error ? error : new Error(String(error)));
+						}
+					}
+				} finally {
+					if (reader) {
+						const cancelResult = await ResultAsync.fromPromise(
+							reader.cancel(),
+							(error) => new Error(`Failed to cancel reader: ${error}`)
+						);
+
+						if (cancelResult.isErr()) {
+							console.log(`[${runId}] error cancelling reader:`, cancelResult.error);
+						}
+					}
+					if (!abortController.signal.aborted) {
+						streamController.close();
+					}
+				}
+			},
+			cancel(reason) {
+				console.log(`[${runId}] resume stream cancelled by client`, reason);
+				abortController.abort(reason);
 			}
 		});
+
+		return stream;
 	},
 	initStream: async (runId, abortController) => {
 		let streamController: ReadableStreamDefaultController<Uint8Array>;
@@ -105,54 +222,95 @@ const s2RiverStorageProvider = <ChunkType>(
 			}
 		});
 
-		const s2Stream = await streamsCreateStream(s2, {
-			s2Basin: streamId,
-			createStreamRequest: {
-				stream: runId
-			}
-		});
+		const createStreamResult = await ResultAsync.fromPromise(
+			streamsCreateStream(s2, {
+				s2Basin: streamId,
+				createStreamRequest: {
+					stream: runId
+				}
+			}),
+			(error) => new Error(`Failed to create stream: ${error}`)
+		);
 
-		if (s2Stream.error) {
-			throw new Error(s2Stream.error.message);
+		if (createStreamResult.isErr()) {
+			throw createStreamResult.error;
+		}
+
+		const s2StreamResult = createStreamResult.value;
+		if (s2StreamResult.error) {
+			throw new Error(s2StreamResult.error.message);
 		}
 
 		let pendingRecords: Array<{ body: string }> = [];
-		let currentAppendPromise: Promise<any> | null = null;
+		let currentAppendPromise: Promise<void> | null = null;
 		const encoder = new TextEncoder();
 
-		const flushRecords = async () => {
-			if (pendingRecords.length === 0) return;
+		const flushRecords = async (): Promise<{ isOk: boolean; error?: Error }> => {
+			if (pendingRecords.length === 0) return { isOk: true };
 
 			const recordsToFlush = pendingRecords;
 			pendingRecords = [];
 
-			try {
-				await recordsAppend(s2, {
+			const result = await ResultAsync.fromPromise(
+				recordsAppend(s2, {
 					s2Basin: streamId,
-					stream: s2Stream.value.name,
+					stream: s2StreamResult.value.name,
 					appendInput: {
 						records: recordsToFlush
 					}
-				});
-			} catch (error) {
-				console.error(`[${s2Stream.value.name}] Failed to append records to S2:`, error);
+				}),
+				(error) => new Error(`Failed to append records to S2: ${error}`)
+			);
+
+			if (result.isErr()) {
+				console.error(`[${s2StreamResult.value.name}] error appending records:`, result.error);
+				return { isOk: false, error: result.error };
 			}
+
+			const s2Result = result.value;
+			if (s2Result.error) {
+				const error = new Error(s2Result.error.message);
+				console.error(`[${s2StreamResult.value.name}] error appending records:`, error);
+				return { isOk: false, error };
+			}
+
+			return { isOk: true };
 		};
 
 		const safeSendChunk = (chunk: any) => {
 			if (abortController.signal.aborted) {
 				return;
 			}
-			const stringifiedChunk = JSON.stringify(chunk);
-			const sseChunk = `data: ${stringifiedChunk}\n\n`;
 
-			pendingRecords.push({ body: stringifiedChunk });
-			streamController.enqueue(encoder.encode(sseChunk));
+			try {
+				const stringifiedChunk = JSON.stringify(chunk);
+				const sseChunk = `data: ${stringifiedChunk}\n\n`;
 
-			if (currentAppendPromise === null) {
-				currentAppendPromise = flushRecords().finally(() => {
-					currentAppendPromise = null;
-				});
+				pendingRecords.push({ body: stringifiedChunk });
+				streamController.enqueue(encoder.encode(sseChunk));
+
+				if (currentAppendPromise === null) {
+					currentAppendPromise = flushRecords()
+						.then((result) => {
+							if (!result.isOk) {
+								console.error(`[${runId}] error flushing records:`, result.error);
+								if (!abortController.signal.aborted) {
+									streamController.error(result.error);
+								}
+							}
+						})
+						.catch((error) => {
+							console.error(`[${runId}] unexpected error flushing records:`, error);
+							if (!abortController.signal.aborted) {
+								streamController.error(error instanceof Error ? error : new Error(String(error)));
+							}
+						});
+				}
+			} catch (error) {
+				console.error(`[${runId}] error sending chunk:`, error);
+				if (!abortController.signal.aborted) {
+					streamController.error(error instanceof Error ? error : new Error(String(error)));
+				}
 			}
 		};
 
@@ -162,8 +320,7 @@ const s2RiverStorageProvider = <ChunkType>(
 			sendData: (innerSendFunc) => {
 				const startChunk: RiverStorageSpecialChunk = {
 					RIVER_SPECIAL_TYPE_KEY: 'stream_start',
-					runId,
-					streamId
+					runId
 				};
 
 				safeSendChunk(startChunk);
@@ -173,25 +330,42 @@ const s2RiverStorageProvider = <ChunkType>(
 						safeSendChunk(chunk);
 					},
 					close: async () => {
-						const endChunk: RiverStorageSpecialChunk = {
-							RIVER_SPECIAL_TYPE_KEY: 'stream_end',
-							runId,
-							streamId
-						};
-
-						pendingRecords.push({ body: JSON.stringify(endChunk) });
-
-						if (currentAppendPromise) {
-							await currentAppendPromise;
-						}
-						if (pendingRecords.length > 0) {
-							await flushRecords();
+						if (abortController.signal.aborted) {
+							return;
 						}
 
-						if (!abortController.signal.aborted) {
-							const sseChunk = `data: ${JSON.stringify(endChunk)}\n\n`;
-							streamController.enqueue(encoder.encode(sseChunk));
-							streamController.close();
+						try {
+							const endChunk: RiverStorageSpecialChunk = {
+								RIVER_SPECIAL_TYPE_KEY: 'stream_end',
+								runId
+							};
+
+							pendingRecords.push({ body: JSON.stringify(endChunk) });
+
+							if (currentAppendPromise) {
+								await currentAppendPromise;
+							}
+
+							const flushResult = await flushRecords();
+
+							if (!flushResult.isOk) {
+								console.error(`[${runId}] error flushing final records:`, flushResult.error);
+								if (!abortController.signal.aborted) {
+									streamController.error(flushResult.error);
+								}
+								return;
+							}
+
+							if (!abortController.signal.aborted) {
+								const sseChunk = `data: ${JSON.stringify(endChunk)}\n\n`;
+								streamController.enqueue(encoder.encode(sseChunk));
+								streamController.close();
+							}
+						} catch (error) {
+							console.error(`[${runId}] error closing stream:`, error);
+							if (!abortController.signal.aborted) {
+								streamController.error(error instanceof Error ? error : new Error(String(error)));
+							}
 						}
 					}
 				});

@@ -16,7 +16,6 @@ type RiverFrameworkMeta =
 type RiverStorageSpecialChunk = {
 	RIVER_SPECIAL_TYPE_KEY: 'stream_start' | 'stream_end';
 	runId: string;
-	streamId: string | null;
 };
 
 type SendDataHelperFunc<ChunkType> = (helpers: {
@@ -96,7 +95,10 @@ type CreateRiverRouter = <T extends RiverRouter>(streams: T) => DecoratedRiverRo
 
 type ServerEndpointHandler = <T extends RiverRouter>(
 	router: DecoratedRiverRouter<T>
-) => { POST: (event: RequestEvent) => Promise<Response> };
+) => {
+	POST: (event: RequestEvent) => Promise<Response>;
+	GET: (event: RequestEvent) => Promise<Response>;
+};
 
 // HELPERS
 
@@ -118,10 +120,7 @@ type OnSuccessCallback = () => void | Promise<void>;
 type OnErrorCallback = (error: RiverError) => void | Promise<void>;
 type OnChunkCallback<Chunk> = (chunk: Chunk, index: number) => void | Promise<void>;
 type OnStartCallback = () => void | Promise<void>;
-type OnStreamInfoCallback = (data: {
-	runId: string;
-	streamId: string | null;
-}) => void | Promise<void>;
+type OnStreamInfoCallback = (data: { runId: string }) => void | Promise<void>;
 type OnCancelCallback = () => void | Promise<void>;
 type OnResetCallback = () => void | Promise<void>;
 

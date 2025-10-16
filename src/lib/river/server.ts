@@ -4,6 +4,27 @@ import { RiverError } from './errors.js';
 
 export const createSvelteKitEndpointHandler: ServerEndpointHandler = (router) => {
 	return {
+		GET: async (event) => {
+			const { searchParams } = event.url;
+
+			const runId = searchParams.get('runId');
+			const streamId = searchParams.get('streamId');
+
+			if (!runId || !streamId) {
+				return new Response(
+					JSON.stringify(
+						new RiverError('Run ID and stream ID are required', {
+							cause: 'Run ID and stream ID are required'
+						})
+					),
+					{ status: 400 }
+				);
+			}
+
+			const stream = router[streamId];
+
+			return new Response('Hello, world!');
+		},
 		POST: async (event) => {
 			const body = await ResultAsync.fromPromise(
 				event.request.json(),
@@ -21,20 +42,22 @@ export const createSvelteKitEndpointHandler: ServerEndpointHandler = (router) =>
 				return new Response(JSON.stringify(body.error), { status: 400 });
 			}
 
-			const agentId = body.value.agentId;
+			const streamKey = body.value.streamKey;
 
-			if (!agentId) {
+			if (!streamKey) {
 				return new Response(
-					JSON.stringify(new RiverError('Agent ID is required', { cause: 'Agent ID is required' })),
+					JSON.stringify(
+						new RiverError('Stream key is required', { cause: 'Stream key is required' })
+					),
 					{ status: 400 }
 				);
 			}
 
-			const agent = router[agentId];
+			const stream = router[streamKey];
 
-			if (!agent) {
+			if (!stream) {
 				return new Response(
-					JSON.stringify(new RiverError('Agent not found', { cause: 'Agent not found' })),
+					JSON.stringify(new RiverError('Stream not found', { cause: 'Stream not found' })),
 					{
 						status: 400
 					}
@@ -48,7 +71,7 @@ export const createSvelteKitEndpointHandler: ServerEndpointHandler = (router) =>
 			};
 
 			// TODO: error handling
-			const runResult = await agent.runner({
+			const runResult = await stream.runner({
 				initStream,
 				runId,
 				meta: {

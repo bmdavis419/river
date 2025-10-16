@@ -23,7 +23,7 @@ type RiverClient<T extends RiverRouter> = {
 class SvelteKitRiverClientCaller<Input, Chunk> implements ClientSideCaller<Input, Chunk> {
 	status = $state<'idle' | 'canceled' | 'error' | 'success' | 'running'>('idle');
 	endpoint: string;
-	agentId: string;
+	streamKey: string;
 	lifeCycleCallbacks: ClientSideCallerOptions<Chunk>;
 	currentAbortController: AbortController | null = null;
 
@@ -70,7 +70,7 @@ class SvelteKitRiverClientCaller<Input, Chunk> implements ClientSideCaller<Input
 			fetch(this.endpoint, {
 				method: 'POST',
 				body: JSON.stringify({
-					agentId: this.agentId,
+					streamKey: this.streamKey,
 					input
 				}),
 				signal: abortController.signal
@@ -141,8 +141,7 @@ class SvelteKitRiverClientCaller<Input, Chunk> implements ClientSideCaller<Input
 					const parsed = JSON.parse(rawData) as RiverStorageSpecialChunk;
 					if (parsed.RIVER_SPECIAL_TYPE_KEY === 'stream_start') {
 						await onStreamInfo?.({
-							runId: parsed.runId,
-							streamId: parsed.streamId
+							runId: parsed.runId
 						});
 					}
 					continue;
@@ -181,7 +180,7 @@ class SvelteKitRiverClientCaller<Input, Chunk> implements ClientSideCaller<Input
 		this.lifeCycleCallbacks.onReset?.();
 	};
 
-	constructor(options: ClientSideCallerOptions<Chunk> & { agentId: string; endpoint: string }) {
+	constructor(options: ClientSideCallerOptions<Chunk> & { streamKey: string; endpoint: string }) {
 		this.lifeCycleCallbacks = {
 			onSuccess: options.onSuccess,
 			onError: options.onError,
@@ -192,20 +191,20 @@ class SvelteKitRiverClientCaller<Input, Chunk> implements ClientSideCaller<Input
 			onReset: options.onReset
 		};
 		this.endpoint = options.endpoint;
-		this.agentId = options.agentId;
+		this.streamKey = options.streamKey;
 	}
 }
 
 const createSvelteKitRiverClient = <T extends RiverRouter>(endpoint: string): RiverClient<T> => {
 	return new Proxy({} as RiverClient<T>, {
-		get<K extends keyof T>(_target: RiverClient<T>, agentId: K & (string | symbol)) {
+		get<K extends keyof T>(_target: RiverClient<T>, streamKey: K & (string | symbol)) {
 			return (options: ClientSideCallerOptions<InferRiverStreamChunkType<T[K]>>) => {
 				return new SvelteKitRiverClientCaller<
 					InferRiverStreamInputType<T[K]>,
 					InferRiverStreamChunkType<T[K]>
 				>({
 					...options,
-					agentId: agentId as string,
+					streamKey: streamKey as string,
 					endpoint
 				});
 			};
