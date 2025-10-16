@@ -2,6 +2,7 @@ import { OPENROUTER_API_KEY, S2_TOKEN } from '$env/static/private';
 import { RIVER_PROVIDERS } from '$lib/river/providers.js';
 import { RIVER_STREAMS } from '$lib/river/streams.js';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+import { waitUntil } from '@vercel/functions';
 import { stepCountIs, streamText, tool, type AsyncIterableStream } from 'ai';
 import z from 'zod';
 
@@ -78,7 +79,7 @@ export const s2StreamFirstTest = RIVER_STREAMS.createRiverStream()
 		})
 	)
 	.runner(async (stuff) => {
-		const { input, initStream, abortSignal } = stuff;
+		const { input, initStream } = stuff;
 
 		const activeStream = await initStream(
 			RIVER_PROVIDERS.s2RiverStorageProvider<{
@@ -87,14 +88,14 @@ export const s2StreamFirstTest = RIVER_STREAMS.createRiverStream()
 		);
 
 		activeStream.sendData(async ({ appendChunk, close }) => {
-			for await (const chunk of input.message.split('')) {
-				if (abortSignal.aborted) {
-					break;
+			const run = async () => {
+				for await (const chunk of input.message.split('')) {
+					appendChunk({ letter: chunk });
+					await new Promise((resolve) => setTimeout(resolve, 100));
 				}
-				appendChunk({ letter: chunk });
-				await new Promise((resolve) => setTimeout(resolve, 100));
-			}
-			await close();
+				await close();
+			};
+			waitUntil(run());
 		});
 
 		return activeStream;

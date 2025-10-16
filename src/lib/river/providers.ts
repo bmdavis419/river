@@ -279,16 +279,15 @@ const s2RiverStorageProvider = <ChunkType>(
 		};
 
 		const safeSendChunk = (chunk: any) => {
-			if (abortController.signal.aborted) {
-				return;
-			}
-
 			try {
 				const stringifiedChunk = JSON.stringify(chunk);
 				const sseChunk = `data: ${stringifiedChunk}\n\n`;
 
 				pendingRecords.push({ body: stringifiedChunk });
-				streamController.enqueue(encoder.encode(sseChunk));
+
+				if (!abortController.signal.aborted) {
+					streamController.enqueue(encoder.encode(sseChunk));
+				}
 
 				if (currentAppendPromise === null) {
 					currentAppendPromise = flushRecords()
@@ -338,10 +337,6 @@ const s2RiverStorageProvider = <ChunkType>(
 						safeSendChunk(chunk);
 					},
 					close: async () => {
-						if (abortController.signal.aborted) {
-							return;
-						}
-
 						try {
 							const endChunk: RiverStorageSpecialChunk = {
 								RIVER_SPECIAL_TYPE_KEY: 'stream_end',

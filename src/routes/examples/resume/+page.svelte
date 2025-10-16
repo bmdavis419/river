@@ -38,4 +38,5 @@
 		>Start S2 stream test</button
 	>
 	<button onclick={() => basicS2StreamTest.stop()}>Stop</button>
+	<button onclick={() => goto('')}>Clear URL</button>
 </div>
