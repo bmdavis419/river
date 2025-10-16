@@ -1,8 +1,8 @@
-import { S2Core } from '@s2-dev/streamstore/core.js';
+import { S2Core } from '@s2-dev/streamstore/core';
 import type { RiverStorageProvider, RiverStorageSpecialChunk } from './types.js';
-import { streamsCreateStream } from '@s2-dev/streamstore/funcs/streamsCreateStream.js';
-import { recordsAppend } from '@s2-dev/streamstore/funcs/recordsAppend.js';
-import { recordsRead } from '@s2-dev/streamstore/funcs/recordsRead.js';
+import { streamsCreateStream } from '@s2-dev/streamstore/funcs/streamsCreateStream';
+import { recordsAppend } from '@s2-dev/streamstore/funcs/recordsAppend';
+import { recordsRead } from '@s2-dev/streamstore/funcs/recordsRead';
 import { ResultAsync } from 'neverthrow';
 import { RiverError } from './errors.js';
 
