@@ -1,12 +1,11 @@
 import { OPENROUTER_API_KEY, S2_TOKEN } from '$env/static/private';
+import { RiverError } from '$lib/index.js';
 import { RIVER_PROVIDERS } from '$lib/river/providers.js';
 import { RIVER_STREAMS } from '$lib/river/streams.js';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { waitUntil } from '@vercel/functions';
 import { stepCountIs, streamText, tool, type AsyncIterableStream } from 'ai';
 import z from 'zod';
-
-// TODO: client side resuming, endpoint for getting the stream out of S2, interface for the resume endpoint that goes into the provider
 
 const openrouter = createOpenRouter({
 	apiKey: OPENROUTER_API_KEY
@@ -120,7 +119,12 @@ export const myFirstNewRiverStream = RIVER_STREAMS.createRiverStream()
 		activeStream.sendData(async ({ appendChunk, close }) => {
 			const letters = yourName.split('');
 			const onlyLetters = letters.filter((letter) => letter.match(/[a-zA-Z]/));
+			let idx = 0;
 			for await (const letter of onlyLetters) {
+				if (idx > 5) {
+					throw new RiverError('Too many letters', undefined, 'custom');
+				}
+				idx++;
 				if (abortSignal.aborted) {
 					break;
 				}

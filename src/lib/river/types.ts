@@ -20,9 +20,10 @@ type RiverResumptionToken = {
 };
 
 type RiverStorageSpecialChunk = {
-	RIVER_SPECIAL_TYPE_KEY: 'stream_start' | 'stream_end';
+	RIVER_SPECIAL_TYPE_KEY: 'stream_start' | 'stream_end' | 'stream_error';
 	runId: string;
 	resumptionToken?: RiverResumptionToken;
+	error?: string;
 };
 
 type SendDataHelperFunc<ChunkType> = (helpers: {

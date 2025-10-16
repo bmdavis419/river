@@ -82,9 +82,16 @@ class SvelteKitRiverClientCaller<Input, Chunk> implements ClientSideCaller<Input
 		}
 
 		if (!response.value.ok) {
+			let riverError: RiverError;
+			try {
+				const errorData = await response.value.json();
+				riverError = RiverError.fromJSON(errorData);
+			} catch {
+				riverError = new RiverError('Failed to resume stream', response.value);
+			}
 			return await handleFinish({
 				status: 'error',
-				error: new RiverError('Failed to resume stream', response.value)
+				error: riverError
 			});
 		}
 
@@ -92,7 +99,7 @@ class SvelteKitRiverClientCaller<Input, Chunk> implements ClientSideCaller<Input
 		if (!reader) {
 			return await handleFinish({
 				status: 'error',
-				error: new RiverError('Failed to get reader', true)
+				error: new RiverError('Failed to get reader')
 			});
 		}
 
@@ -144,6 +151,21 @@ class SvelteKitRiverClientCaller<Input, Chunk> implements ClientSideCaller<Input
 							runId: parsed.runId,
 							resumeKey: resumeKeyForCallback
 						});
+					} else if (parsed.RIVER_SPECIAL_TYPE_KEY === 'stream_error') {
+						let riverError: RiverError;
+						if (parsed.error) {
+							try {
+								const errorData = JSON.parse(parsed.error);
+								riverError = RiverError.fromJSON(errorData);
+							} catch {
+								riverError = new RiverError('Stream error');
+							}
+						} else {
+							riverError = new RiverError('Stream error');
+						}
+						await handleFinish({ status: 'error', error: riverError });
+						done = true;
+						break;
 					}
 					continue;
 				}
@@ -224,9 +246,16 @@ class SvelteKitRiverClientCaller<Input, Chunk> implements ClientSideCaller<Input
 		}
 
 		if (!response.value.ok) {
+			let riverError: RiverError;
+			try {
+				const errorData = await response.value.json();
+				riverError = RiverError.fromJSON(errorData);
+			} catch {
+				riverError = new RiverError('Failed to call agent', response.value);
+			}
 			return await handleFinish({
 				status: 'error',
-				error: new RiverError('Failed to call agent', response.value)
+				error: riverError
 			});
 		}
 
@@ -234,7 +263,7 @@ class SvelteKitRiverClientCaller<Input, Chunk> implements ClientSideCaller<Input
 		if (!reader) {
 			return await handleFinish({
 				status: 'error',
-				error: new RiverError('Failed to get reader', true)
+				error: new RiverError('Failed to get reader')
 			});
 		}
 
@@ -286,6 +315,21 @@ class SvelteKitRiverClientCaller<Input, Chunk> implements ClientSideCaller<Input
 							runId: parsed.runId,
 							resumeKey
 						});
+					} else if (parsed.RIVER_SPECIAL_TYPE_KEY === 'stream_error') {
+						let riverError: RiverError;
+						if (parsed.error) {
+							try {
+								const errorData = JSON.parse(parsed.error);
+								riverError = RiverError.fromJSON(errorData);
+							} catch {
+								riverError = new RiverError('Stream error');
+							}
+						} else {
+							riverError = new RiverError('Stream error');
+						}
+						await handleFinish({ status: 'error', error: riverError });
+						done = true;
+						break;
 					}
 					continue;
 				}

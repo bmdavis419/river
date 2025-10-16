@@ -4,6 +4,7 @@ import { streamsCreateStream } from '@s2-dev/streamstore/funcs/streamsCreateStre
 import { recordsAppend } from '@s2-dev/streamstore/funcs/recordsAppend.js';
 import { recordsRead } from '@s2-dev/streamstore/funcs/recordsRead.js';
 import { ResultAsync } from 'neverthrow';
+import { RiverError } from './errors.js';
 
 const defaultRiverStorageProvider = <ChunkType>(): RiverStorageProvider<ChunkType, false> => ({
 	providerId: 'default',
@@ -51,18 +52,37 @@ const defaultRiverStorageProvider = <ChunkType>(): RiverStorageProvider<ChunkTyp
 
 				safeSendChunk(startChunk);
 
-				innerSendFunc({
-					appendChunk: (chunk) => {
-						safeSendChunk(chunk);
-					},
-					close: async () => {
-						const endChunk: RiverStorageSpecialChunk = {
-							RIVER_SPECIAL_TYPE_KEY: 'stream_end',
-							runId
+				ResultAsync.fromPromise(
+					innerSendFunc({
+						appendChunk: (chunk) => {
+							safeSendChunk(chunk);
+						},
+						close: async () => {
+							const endChunk: RiverStorageSpecialChunk = {
+								RIVER_SPECIAL_TYPE_KEY: 'stream_end',
+								runId
+							};
+
+							safeSendChunk(endChunk);
+
+							if (!abortController.signal.aborted) {
+								streamController.close();
+							}
+						}
+					}),
+					(error) =>
+						error instanceof RiverError
+							? error
+							: new RiverError('Error in stream handler', error, 'stream', { runId })
+				).then((result) => {
+					if (result.isErr()) {
+						console.error(`[${runId}] error in stream handler:`, result.error);
+						const errorChunk: RiverStorageSpecialChunk = {
+							RIVER_SPECIAL_TYPE_KEY: 'stream_error',
+							runId,
+							error: JSON.stringify(result.error.toJSON())
 						};
-
-						safeSendChunk(endChunk);
-
+						safeSendChunk(errorChunk);
 						if (!abortController.signal.aborted) {
 							streamController.close();
 						}
@@ -112,7 +132,11 @@ const s2RiverStorageProvider = <ChunkType>(
 							}
 						}
 					),
-					(error) => new Error(`Failed to read records from S2: ${error}`)
+					(error) =>
+						new RiverError(`Failed to read records from S2: ${error}`, error, 'storage', {
+							runId,
+							s2StreamId
+						})
 				);
 
 				if (result.isErr()) {
@@ -123,14 +147,22 @@ const s2RiverStorageProvider = <ChunkType>(
 
 				const recordsReadResult = result.value;
 				if (recordsReadResult.error) {
-					const error = new Error(`S2 returned error: ${recordsReadResult.error.message}`);
+					const error = new RiverError(
+						`S2 returned error: ${recordsReadResult.error.message}`,
+						recordsReadResult.error,
+						'storage',
+						{ runId, s2StreamId }
+					);
 					console.error(`[${runId}] ${error.message}`);
 					controller.error(error);
 					return;
 				}
 
 				if (!(recordsReadResult.value instanceof ReadableStream)) {
-					const error = new Error('S2 did not return a stream');
+					const error = new RiverError('S2 did not return a stream', undefined, 'storage', {
+						runId,
+						s2StreamId
+					});
 					console.error(`[${runId}] ${error.message}`);
 					controller.error(error);
 					return;
@@ -174,17 +206,26 @@ const s2RiverStorageProvider = <ChunkType>(
 				} catch (error) {
 					if (error instanceof Error && error.name === 'AbortError') {
 						console.log(`[${runId}] resume stream aborted by client`);
-					} else {
+					} else if (error instanceof RiverError) {
 						console.error(`[${runId}] error during resume stream:`, error);
 						if (!abortController.signal.aborted) {
-							controller.error(error instanceof Error ? error : new Error(String(error)));
+							controller.error(error);
+						}
+					} else {
+						const riverError = new RiverError('Error during resume stream', error, 'stream', {
+							runId
+						});
+						console.error(`[${runId}] error during resume stream:`, riverError);
+						if (!abortController.signal.aborted) {
+							controller.error(riverError);
 						}
 					}
 				} finally {
 					if (reader) {
 						const cancelResult = await ResultAsync.fromPromise(
 							reader.cancel(),
-							(error) => new Error(`Failed to cancel reader: ${error}`)
+							(error) =>
+								new RiverError(`Failed to cancel reader: ${error}`, error, 'stream', { runId })
 						);
 
 						if (cancelResult.isErr()) {
@@ -206,11 +247,15 @@ const s2RiverStorageProvider = <ChunkType>(
 	},
 	initStream: async (runId, abortController) => {
 		if (!streamId) {
-			throw new Error('s2StreamId is required for S2 resumable streams');
+			throw new RiverError('s2StreamId is required for S2 resumable streams', undefined, 'custom', {
+				runId
+			});
 		}
 
 		if (!waitUntil) {
-			throw new Error('waitUntil is required for S2 resumable streams');
+			throw new RiverError('waitUntil is required for S2 resumable streams', undefined, 'custom', {
+				runId
+			});
 		}
 
 		let streamController: ReadableStreamDefaultController<Uint8Array>;
@@ -235,7 +280,8 @@ const s2RiverStorageProvider = <ChunkType>(
 					stream: runId
 				}
 			}),
-			(error) => new Error(`Failed to create stream: ${error}`)
+			(error) =>
+				new RiverError(`Failed to create stream: ${error}`, error, 'storage', { runId, streamId })
 		);
 
 		if (createStreamResult.isErr()) {
@@ -244,14 +290,17 @@ const s2RiverStorageProvider = <ChunkType>(
 
 		const s2StreamResult = createStreamResult.value;
 		if (s2StreamResult.error) {
-			throw new Error(s2StreamResult.error.message);
+			throw new RiverError(s2StreamResult.error.message, s2StreamResult.error, 'storage', {
+				runId,
+				streamId
+			});
 		}
 
 		let pendingRecords: Array<{ body: string }> = [];
 		let currentAppendPromise: Promise<void> | null = null;
 		const encoder = new TextEncoder();
 
-		const flushRecords = async (): Promise<{ isOk: boolean; error?: Error }> => {
+		const flushRecords = async (): Promise<{ isOk: boolean; error?: RiverError }> => {
 			if (pendingRecords.length === 0) return { isOk: true };
 
 			const recordsToFlush = pendingRecords;
@@ -265,7 +314,11 @@ const s2RiverStorageProvider = <ChunkType>(
 						records: recordsToFlush
 					}
 				}),
-				(error) => new Error(`Failed to append records to S2: ${error}`)
+				(error) =>
+					new RiverError(`Failed to append records to S2: ${error}`, error, 'storage', {
+						runId,
+						streamId
+					})
 			);
 
 			if (result.isErr()) {
@@ -275,7 +328,10 @@ const s2RiverStorageProvider = <ChunkType>(
 
 			const s2Result = result.value;
 			if (s2Result.error) {
-				const error = new Error(s2Result.error.message);
+				const error = new RiverError(s2Result.error.message, s2Result.error, 'storage', {
+					runId,
+					streamId
+				});
 				console.error(`[${s2StreamResult.value.name}] error appending records:`, error);
 				return { isOk: false, error };
 			}
@@ -307,16 +363,24 @@ const s2RiverStorageProvider = <ChunkType>(
 						})
 						.catch((error) => {
 							currentAppendPromise = null;
-							console.error(`[${runId}] unexpected error flushing records:`, error);
+							const riverError =
+								error instanceof RiverError
+									? error
+									: new RiverError('Unexpected error flushing records', error, 'stream', { runId });
+							console.error(`[${runId}] unexpected error flushing records:`, riverError);
 							if (!abortController.signal.aborted) {
-								streamController.error(error instanceof Error ? error : new Error(String(error)));
+								streamController.error(riverError);
 							}
 						});
 				}
 			} catch (error) {
-				console.error(`[${runId}] error sending chunk:`, error);
+				const riverError =
+					error instanceof RiverError
+						? error
+						: new RiverError('Error sending chunk', error, 'stream', { runId });
+				console.error(`[${runId}] error sending chunk:`, riverError);
 				if (!abortController.signal.aborted) {
-					streamController.error(error instanceof Error ? error : new Error(String(error)));
+					streamController.error(riverError);
 				}
 			}
 		};
@@ -339,43 +403,66 @@ const s2RiverStorageProvider = <ChunkType>(
 
 				safeSendChunk(startChunk);
 
-				const sendDataPromise = innerSendFunc({
-					appendChunk: (chunk) => {
-						safeSendChunk(chunk);
-					},
-					close: async () => {
-						try {
-							if (currentAppendPromise) {
-								await currentAppendPromise;
-							}
-
-							const endChunk: RiverStorageSpecialChunk = {
-								RIVER_SPECIAL_TYPE_KEY: 'stream_end',
-								runId
-							};
-
-							pendingRecords.push({ body: JSON.stringify(endChunk) });
-
-							const flushResult = await flushRecords();
-
-							if (!flushResult.isOk) {
-								console.error(`[${runId}] error flushing final records:`, flushResult.error);
-								if (!abortController.signal.aborted) {
-									streamController.error(flushResult.error);
+				const sendDataPromise = ResultAsync.fromPromise(
+					innerSendFunc({
+						appendChunk: (chunk) => {
+							safeSendChunk(chunk);
+						},
+						close: async () => {
+							try {
+								if (currentAppendPromise) {
+									await currentAppendPromise;
 								}
-								return;
-							}
 
-							if (!abortController.signal.aborted) {
-								const sseChunk = `data: ${JSON.stringify(endChunk)}\n\n`;
-								streamController.enqueue(encoder.encode(sseChunk));
-								streamController.close();
+								const endChunk: RiverStorageSpecialChunk = {
+									RIVER_SPECIAL_TYPE_KEY: 'stream_end',
+									runId
+								};
+
+								pendingRecords.push({ body: JSON.stringify(endChunk) });
+
+								const flushResult = await flushRecords();
+
+								if (!flushResult.isOk) {
+									console.error(`[${runId}] error flushing final records:`, flushResult.error);
+									if (!abortController.signal.aborted) {
+										streamController.error(flushResult.error);
+									}
+									return;
+								}
+
+								if (!abortController.signal.aborted) {
+									const sseChunk = `data: ${JSON.stringify(endChunk)}\n\n`;
+									streamController.enqueue(encoder.encode(sseChunk));
+									streamController.close();
+								}
+							} catch (error) {
+								const riverError =
+									error instanceof RiverError
+										? error
+										: new RiverError('Error closing stream', error, 'stream', { runId });
+								console.error(`[${runId}] error closing stream:`, riverError);
+								if (!abortController.signal.aborted) {
+									streamController.error(riverError);
+								}
 							}
-						} catch (error) {
-							console.error(`[${runId}] error closing stream:`, error);
-							if (!abortController.signal.aborted) {
-								streamController.error(error instanceof Error ? error : new Error(String(error)));
-							}
+						}
+					}),
+					(error) =>
+						error instanceof RiverError
+							? error
+							: new RiverError('Error in stream handler', error, 'stream', { runId })
+				).then((result) => {
+					if (result.isErr()) {
+						console.error(`[${runId}] error in stream handler:`, result.error);
+						const errorChunk: RiverStorageSpecialChunk = {
+							RIVER_SPECIAL_TYPE_KEY: 'stream_error',
+							runId,
+							error: JSON.stringify(result.error.toJSON())
+						};
+						safeSendChunk(errorChunk);
+						if (!abortController.signal.aborted) {
+							streamController.close();
 						}
 					}
 				});

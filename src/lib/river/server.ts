@@ -13,38 +13,24 @@ export const createSvelteKitEndpointHandler: ServerEndpointHandler = ({
 			const resumptionTokenStr = searchParams.get('resumeKey');
 
 			if (!resumptionTokenStr) {
-				return new Response(
-					JSON.stringify(
-						new RiverError('Resume key is required', {
-							cause: 'Resume key is required'
-						})
-					),
-					{ status: 400 }
-				);
+				const error = new RiverError('Resume key is required', undefined, 'custom');
+				return new Response(JSON.stringify(error.toJSON()), { status: 500 });
 			}
 
 			let resumptionToken;
 			try {
 				const decodedStr = atob(resumptionTokenStr);
 				resumptionToken = JSON.parse(decodedStr);
-			} catch {
-				return new Response(
-					JSON.stringify(
-						new RiverError('Invalid resume key', {
-							cause: 'Invalid resume key'
-						})
-					),
-					{ status: 400 }
-				);
+			} catch (error) {
+				const riverError = new RiverError('Invalid resume key', error, 'custom');
+				return new Response(JSON.stringify(riverError.toJSON()), { status: 500 });
 			}
 
 			const { providerId, runId, streamId } = resumptionToken;
 
 			if (!resumableProviders || !resumableProviders[providerId]) {
-				return new Response(
-					JSON.stringify(new RiverError('Provider not found', { cause: 'Provider not found' })),
-					{ status: 400 }
-				);
+				const error = new RiverError('Provider not found', undefined, 'custom', { providerId });
+				return new Response(JSON.stringify(error.toJSON()), { status: 500 });
 			}
 
 			const provider = resumableProviders[providerId];
@@ -55,15 +41,22 @@ export const createSvelteKitEndpointHandler: ServerEndpointHandler = ({
 				abortController.abort();
 			});
 
-			// TODO: error handling
-			const resumedStream = await provider.resumeStream(runId, abortController, streamId);
-
-			return new Response(resumedStream);
+			try {
+				const resumedStream = await provider.resumeStream(runId, abortController, streamId);
+				return new Response(resumedStream);
+			} catch (error) {
+				const riverError =
+					error instanceof RiverError
+						? error
+						: new RiverError('Failed to resume stream', error, 'stream', { runId, providerId });
+				console.error(`[${runId}] error resuming stream:`, riverError);
+				return new Response(JSON.stringify(riverError.toJSON()), { status: 500 });
+			}
 		},
 		POST: async (event) => {
 			const body = await ResultAsync.fromPromise(
 				event.request.json(),
-				(e) => new RiverError('Failed to parse request body', { cause: e })
+				(e) => new RiverError('Failed to parse request body', e, 'custom')
 			);
 
 			const abortController = new AbortController();
@@ -73,29 +66,21 @@ export const createSvelteKitEndpointHandler: ServerEndpointHandler = ({
 			});
 
 			if (body.isErr()) {
-				return new Response(JSON.stringify(body.error), { status: 400 });
+				return new Response(JSON.stringify(body.error.toJSON()), { status: 500 });
 			}
 
 			const streamKey = body.value.streamKey;
 
 			if (!streamKey) {
-				return new Response(
-					JSON.stringify(
-						new RiverError('Stream key is required', { cause: 'Stream key is required' })
-					),
-					{ status: 400 }
-				);
+				const error = new RiverError('Stream key is required', undefined, 'custom');
+				return new Response(JSON.stringify(error.toJSON()), { status: 500 });
 			}
 
 			const stream = streams[streamKey];
 
 			if (!stream) {
-				return new Response(
-					JSON.stringify(new RiverError('Stream not found', { cause: 'Stream not found' })),
-					{
-						status: 400
-					}
-				);
+				const error = new RiverError('Stream not found', undefined, 'custom', { streamKey });
+				return new Response(JSON.stringify(error.toJSON()), { status: 500 });
 			}
 
 			const runId = crypto.randomUUID();
@@ -104,7 +89,6 @@ export const createSvelteKitEndpointHandler: ServerEndpointHandler = ({
 				return await provider.initStream(runId, abortController);
 			};
 
-			// TODO: error handling
 			const runResult = await stream.runner({
 				initStream,
 				runId,
