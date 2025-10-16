@@ -75,7 +75,8 @@ const defaultRiverStorageProvider = <ChunkType>(): RiverStorageProvider<ChunkTyp
 
 const s2RiverStorageProvider = <ChunkType>(
 	accessToken: string,
-	streamId?: string
+	streamId?: string,
+	waitUntil?: (promise: Promise<unknown>) => void | undefined
 ): RiverStorageProvider<ChunkType, true> => ({
 	providerId: 's2',
 	isResumable: true,
@@ -148,7 +149,7 @@ const s2RiverStorageProvider = <ChunkType>(
 						if (done) {
 							console.log(`[${runId}] S2 stream ended`);
 							shouldContinue = false;
-							continue;
+							break;
 						}
 
 						if (value.event === 'batch' && value.data?.records) {
@@ -206,6 +207,10 @@ const s2RiverStorageProvider = <ChunkType>(
 	initStream: async (runId, abortController) => {
 		if (!streamId) {
 			throw new Error('s2StreamId is required for S2 resumable streams');
+		}
+
+		if (!waitUntil) {
+			throw new Error('waitUntil is required for S2 resumable streams');
 		}
 
 		let streamController: ReadableStreamDefaultController<Uint8Array>;
@@ -334,7 +339,7 @@ const s2RiverStorageProvider = <ChunkType>(
 
 				safeSendChunk(startChunk);
 
-				innerSendFunc({
+				const sendDataPromise = innerSendFunc({
 					appendChunk: (chunk) => {
 						safeSendChunk(chunk);
 					},
@@ -374,6 +379,8 @@ const s2RiverStorageProvider = <ChunkType>(
 						}
 					}
 				});
+
+				waitUntil(Promise.resolve(sendDataPromise));
 			}
 		};
 	}

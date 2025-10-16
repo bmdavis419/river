@@ -28,7 +28,7 @@ type RiverStorageSpecialChunk = {
 type SendDataHelperFunc<ChunkType> = (helpers: {
 	appendChunk: (chunk: ChunkType) => void;
 	close: () => Promise<void>;
-}) => Promise<void> | void;
+}) => Promise<void>;
 
 type RiverStorageActiveStream<ChunkType, IsResumable> = {
 	isResumable: IsResumable;

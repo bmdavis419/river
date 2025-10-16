@@ -84,19 +84,16 @@ export const s2StreamFirstTest = RIVER_STREAMS.createRiverStream()
 		const activeStream = await initStream(
 			RIVER_PROVIDERS.s2RiverStorageProvider<{
 				letter: string;
-			}>(S2_TOKEN, 'river-testing')
+			}>(S2_TOKEN, 'river-testing', waitUntil)
 		);
 
 		activeStream.sendData(async ({ appendChunk, close }) => {
-			const run = async () => {
-				for await (const chunk of input.message.split('')) {
-					console.log('appending chunk', chunk);
-					appendChunk({ letter: chunk });
-					await new Promise((resolve) => setTimeout(resolve, 50));
-				}
-				await close();
-			};
-			waitUntil(run());
+			for await (const chunk of input.message.split('')) {
+				console.log('appending chunk', chunk);
+				appendChunk({ letter: chunk });
+				await new Promise((resolve) => setTimeout(resolve, 50));
+			}
+			await close();
 		});
 
 		return activeStream;
