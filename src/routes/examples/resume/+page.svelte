@@ -1,10 +1,12 @@
 <script lang="ts">
 	import { myRiverClient } from '../client.js';
+	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import { onMount } from 'svelte';
 
 	const basicS2StreamTest = myRiverClient.s2StreamFirstTest({
 		onChunk: (chunk) => {
-			console.log(chunk);
+			console.log(chunk.letter);
 		},
 		onStart: () => {
 			console.log('Starting S2 stream test');
@@ -17,17 +19,14 @@
 		},
 		onStreamInfo: (data) => {
 			console.log('Stream info:', data);
-			const url = new URL(window.location.href);
-			url.searchParams.set('resumeKey', data.resumeKey);
-			window.history.replaceState({}, '', url);
+			goto(`?resumeKey=${encodeURIComponent(data.resumeKey)}`);
 		}
 	});
 
 	$inspect(basicS2StreamTest.status);
 
 	onMount(() => {
-		const url = new URL(window.location.href);
-		const urlResumeKey = url.searchParams.get('resumeKey');
+		const urlResumeKey = page.url.searchParams.get('resumeKey');
 		if (urlResumeKey) {
 			basicS2StreamTest.resume(urlResumeKey);
 		}
