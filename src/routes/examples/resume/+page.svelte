@@ -34,9 +34,13 @@
 </script>
 
 <div class="flex flex-col gap-4 p-8">
-	<button onclick={() => basicS2StreamTest.start({ message: 'THIS IS A NEW TEST WOWOWOWOWO' })}
-		>Start S2 stream test</button
+	<button
+		onclick={() =>
+			basicS2StreamTest.start({
+				message:
+					'TTHIS IS A NEW TEST WOWOWOWOWOTHIS IS A NEW TEST WOWOWOWOWOTHIS IS A NEW TEST WOWOWOWOWOTHIS IS A NEW TEST WOWOWOWOWOTHIS IS A NEW TEST WOWOWOWOWOIS A NEW TEST OWOHIS IS A NEW TEST WOWOWOWOWO'
+			})}>Start S2 stream test</button
 	>
 	<button onclick={() => basicS2StreamTest.stop()}>Stop</button>
-	<button onclick={() => goto('')}>Clear URL</button>
+	<button onclick={() => goto('?')}>Clear URL</button>
 </div>

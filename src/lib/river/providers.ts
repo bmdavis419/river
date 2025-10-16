@@ -292,6 +292,7 @@ const s2RiverStorageProvider = <ChunkType>(
 				if (currentAppendPromise === null) {
 					currentAppendPromise = flushRecords()
 						.then((result) => {
+							currentAppendPromise = null;
 							if (!result.isOk) {
 								console.error(`[${runId}] error flushing records:`, result.error);
 								if (!abortController.signal.aborted) {
@@ -300,6 +301,7 @@ const s2RiverStorageProvider = <ChunkType>(
 							}
 						})
 						.catch((error) => {
+							currentAppendPromise = null;
 							console.error(`[${runId}] unexpected error flushing records:`, error);
 							if (!abortController.signal.aborted) {
 								streamController.error(error instanceof Error ? error : new Error(String(error)));
@@ -338,16 +340,16 @@ const s2RiverStorageProvider = <ChunkType>(
 					},
 					close: async () => {
 						try {
+							if (currentAppendPromise) {
+								await currentAppendPromise;
+							}
+
 							const endChunk: RiverStorageSpecialChunk = {
 								RIVER_SPECIAL_TYPE_KEY: 'stream_end',
 								runId
 							};
 
 							pendingRecords.push({ body: JSON.stringify(endChunk) });
-
-							if (currentAppendPromise) {
-								await currentAppendPromise;
-							}
 
 							const flushResult = await flushRecords();
 

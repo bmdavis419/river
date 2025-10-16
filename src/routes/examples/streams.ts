@@ -90,8 +90,9 @@ export const s2StreamFirstTest = RIVER_STREAMS.createRiverStream()
 		activeStream.sendData(async ({ appendChunk, close }) => {
 			const run = async () => {
 				for await (const chunk of input.message.split('')) {
+					console.log('appending chunk', chunk);
 					appendChunk({ letter: chunk });
-					await new Promise((resolve) => setTimeout(resolve, 100));
+					await new Promise((resolve) => setTimeout(resolve, 50));
 				}
 				await close();
 			};
