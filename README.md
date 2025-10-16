@@ -1,9 +1,9 @@
-# river - 0.2.0
+# river - 0.3.0
 
 _an experiment by <a href="https://davis7.sh" target="_blank">ben davis</a> that went WAY too far..._
 
 > [!WARNING]
-> As I said, this is alpha software that's gonna change. This is a new version from the original with almost entirely new api's. Expect this to happen again in 0.3.0...
+> As I said, this is alpha software that's gonna change. This is a new version from the original with almost entirely new api's. Expect this to happen again in 0.4.0...
 
 ## it's TRPC, but for agents/streams...
 
@@ -12,7 +12,7 @@ _an experiment by <a href="https://davis7.sh" target="_blank">ben davis</a> that
 	import { myRiverClient } from '$lib/river/client';
 
 	// ALL of this is type safe, feels just like TRPC
-	const { start, stop } = myRiverClient.basicExample({
+	const { start, stop, status } = myRiverClient.basicExample({
 		onStart: () => {
 			console.log('starting basic example');
 		},
@@ -52,20 +52,11 @@ bun i @davis7dotsh/river-alpha
 
 this project does actually work right now, but it is very early in development and NOT recommended for production use. **it is in alpha, the apis will change a lot...**
 
-## local package dev setup
-
-1. get an openrouter api key
-2. add it to your `.env.local` file (see `.env.example`)
-3. `bun i`
-4. `bun dev`
-
 ## getting started using the package
 
 if you want to try this out, it's now available on [npm](https://www.npmjs.com/package/@davis7dotsh/river-alpha)!
 
-i've built out two examples, one using the ai-sdk and one using a custom stream.
-
-they're both are fully type safe, are pleasant to work in, and work great: <a href="https://github.com/bmdavis419/river-examples" target="_blank">check them out</a>
+here are a couple of examples, they're both are fully type safe, are pleasant to work in, and work great: <a href="https://github.com/bmdavis419/river-examples" target="_blank">check them out</a>
 
 ### here's a quick getting started guide for custom streams
 
@@ -202,16 +193,6 @@ export const myFirstRiverClient =
 - mutations are awesome in tanstack query, i want them for streams
 - rpc >>>>>>
 - streams are a pain to consume out of the box (readers and encoders and raw fetch and type casting and more annoying shit)
-
-### FEATURES TODO/IN PROGRESS
-
-- more robust error handling on both client and server. want to do something similar to trpc's `TRPCError`
-- stream resumability support. need to figure out a good way to dump the stream to a persistent store so we can easily resume later **will require api changes**
-- "waitUntil" support. this pretty much goes hand and hand with stream resumability
-
-## docs for: `0.2.0`
-
-_see the examples for more detailed usage, these api's will change..._
 
 ### helper types
 
