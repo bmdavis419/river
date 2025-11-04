@@ -27,7 +27,7 @@ type RiverStorageSpecialChunk = {
 };
 
 type SendDataHelperFunc<ChunkType> = (helpers: {
-	appendChunk: (chunk: ChunkType) => void;
+	appendChunk: (chunk: ChunkType) => Promise<void>;
 	close: () => Promise<void>;
 }) => Promise<void>;
 

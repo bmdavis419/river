@@ -1,15 +1,53 @@
-import { OPENROUTER_API_KEY, S2_TOKEN } from '$env/static/private';
-import { RiverError } from '$lib/index.js';
+import { OPENROUTER_API_KEY, REDIS_URL, S2_TOKEN } from '$env/static/private';
+import { RiverError, type InferAiSdkChunkType } from '$lib/index.js';
 import { RIVER_PROVIDERS } from '$lib/river/providers.js';
 import { RIVER_STREAMS } from '$lib/river/streams.js';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { waitUntil } from '@vercel/functions';
 import { stepCountIs, streamText, tool, type AsyncIterableStream } from 'ai';
+import { Redis } from 'ioredis';
 import z from 'zod';
 
 const openrouter = createOpenRouter({
 	apiKey: OPENROUTER_API_KEY
 });
+
+export const redisClient = new Redis(REDIS_URL);
+
+export const redisStreamFirstTest = RIVER_STREAMS.createRiverStream()
+	.input(
+		z.object({
+			prompt: z.string()
+		})
+	)
+	.runner(async (stuff) => {
+		const { input, initStream } = stuff;
+
+		const { textStream } = streamText({
+			model: openrouter('x-ai/grok-4-fast', {}),
+			prompt: input.prompt,
+			system: "Answer the user's question clearly and honestly, respond in plain text"
+		});
+
+		type ChunkType = InferAiSdkChunkType<typeof textStream>;
+
+		const activeStream = await initStream(
+			RIVER_PROVIDERS.redisRiverStorageProvider<ChunkType>(
+				redisClient,
+				crypto.randomUUID(),
+				waitUntil
+			)
+		);
+
+		activeStream.sendData(async ({ appendChunk, close }) => {
+			for await (const chunk of textStream) {
+				await appendChunk(chunk);
+			}
+			await close();
+		});
+
+		return activeStream;
+	});
 
 export const myAiSdkNewRiverStream = RIVER_STREAMS.createRiverStream()
 	.input(

@@ -23,8 +23,6 @@
 		}
 	});
 
-	$inspect(basicS2StreamTest.status);
-
 	onMount(() => {
 		const urlResumeKey = page.url.searchParams.get('resumeKey');
 		if (urlResumeKey) {

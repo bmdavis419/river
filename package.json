@@ -79,6 +79,7 @@
 	"dependencies": {
 		"@s2-dev/streamstore": "^0.15.13",
 		"@vercel/functions": "^3.1.4",
+		"ioredis": "^5.8.2",
 		"neverthrow": "^8.2.0",
 		"zod": "^4.1.12"
 	}

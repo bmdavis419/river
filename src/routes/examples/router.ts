@@ -1,7 +1,13 @@
 import { RIVER_STREAMS } from '$lib/river/streams.js';
-import { myAiSdkNewRiverStream, myFirstNewRiverStream, s2StreamFirstTest } from './streams.js';
+import {
+	myAiSdkNewRiverStream,
+	myFirstNewRiverStream,
+	redisStreamFirstTest,
+	s2StreamFirstTest
+} from './streams.js';
 
 export const myRiverRouter = RIVER_STREAMS.createRiverRouter({
+	redisStreamFirstTest: redisStreamFirstTest,
 	vowelCounter: myFirstNewRiverStream,
 	questionAsker: myAiSdkNewRiverStream,
 	s2StreamFirstTest: s2StreamFirstTest

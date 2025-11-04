@@ -3,7 +3,7 @@
 _an experiment by <a href="https://davis7.sh" target="_blank">ben davis</a> that went WAY too far..._
 
 > [!WARNING]
-> As I said, this is alpha software that's gonna change. This is a new version from the original with almost entirely new api's. Expect this to happen again in 0.4.0...
+> This project is very much not abandoned, I've just been traveling too much. A half working version of redis durable streams was just pushed, but this definitely needs to be cleaned up a ton (same with the default & s2 providers tbh). Roadmap below...
 
 ## it's TRPC, but for agents/streams...
 
@@ -41,6 +41,38 @@ bun i @davis7dotsh/river-alpha
 ```
 
 **this is alpha software, use it at your own risk. api's will change, bugs will be fixed, features will be added, etc...**
+
+## R O A D M A P
+
+_everything i want to do with this project, goal is to have this shipped with a usable beta by the end of november_
+
+0. get a set of stable api's for v1
+
+i'm pretty confident with the user facing stuff right now, but i think one more pass is worth it before i go through the slog below
+
+- deeper builder pattern for the agents (create => input => provider => runner). this is gonna make it so you have to put the chunk type outside of the runner which sucks, but the current setup is so damn weird that i think it's worth that tradeoff
+- cleanup provider interface
+- finalize client interface
+- iron out abort vs cancel logic
+- error handling polishing
+
+1. monorepo migration
+
+this sveltekit project served me well for just screwing around and trying things out, but i will absolutely need a real monorepo if I'm going to make this work long term. the good news is i for some reason figured out how to do that recently: https://github.com/bmdavis419/r8y-v3
+
+- river core package (router and agents builder)
+- framework packages (server and client stuff) for tanstack start and sveltekit
+- provider packages (for stream resuming and durability)
+
+2. mentioned above, but tanstack start support
+
+3. real documentation site & homepage & good cursor rules & good out of the box prompt to add this to your projects
+
+4. "real world" examples OSS'd
+
+_eventually want to do_
+
+- react native + expo support
 
 ## what you get
 
@@ -133,10 +165,12 @@ export type MyFirstRiverRouter = typeof myFirstRiverRouter;
 
 ```ts
 // src/routes/api/river/+server.ts
-import { RIVER_SERVERS } from '$lib/river/server.js';
-import { myFirstRiverRouter } from './router.js';
+import { myRiverRouter } from '$lib/river/router';
+import { RIVER_SERVERS } from '@davis7dotsh/river-alpha';
 
-export const { POST } = RIVER_SERVERS.createSvelteKitEndpointHandler(myFirstRiverRouter);
+export const { POST, GET } = RIVER_SERVERS.createSvelteKitEndpointHandler({
+	streams: myRiverRouter
+});
 ```
 
 5. setup the client
