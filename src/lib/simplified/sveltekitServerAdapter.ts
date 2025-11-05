@@ -3,7 +3,6 @@ import { RiverError } from './errors.js';
 import {
 	resumeRiverStreamParamsSchema,
 	startRiverStreamBodySchema,
-	type SvelteKitAdapterRequest,
 	type SvelteKitRiverEndpointHandler
 } from './types.js';
 import { decodeRiverResumptionToken } from './resumeTokens.js';

@@ -3,7 +3,7 @@
 _an experiment by <a href="https://davis7.sh" target="_blank">ben davis</a> that went WAY too far..._
 
 > [!WARNING]
-> This project is very much not abandoned, I've just been traveling too much. A half working version of redis durable streams was just pushed, but this definitely needs to be cleaned up a ton (same with the default & s2 providers tbh). Roadmap below...
+> this repo is fully deprecated, the new version is here: https://github.com/bmdavis419/river-mono
 
 ## it's TRPC, but for agents/streams...
 
