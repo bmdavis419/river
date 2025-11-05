@@ -152,8 +152,76 @@ export const startRiverStreamBodySchema = z.object({
 	input: z.unknown()
 });
 
+// river client
+
+type OnEndCallback = (data: { totalChunks: number; totalTimeMs: number }) => void | Promise<void>;
+type OnErrorCallback = (error: RiverError) => void | Promise<void>;
+type OnChunkCallback<Chunk> = (chunk: Chunk, index: number) => void | Promise<void>;
+type OnStartCallback = () => void | Promise<void>;
+type OnStreamInfoCallback = (data: {
+	streamRunId: string;
+	encodedResumptionToken?: string;
+}) => void | Promise<void>;
+type OnAbortCallback = () => void | Promise<void>;
+
+export type ClientSideCaller<Input, ChunkType> = {
+	_phantom?: {
+		ChunkType: ChunkType;
+		InputType: Input;
+	};
+	status: 'not_started' | 'running' | 'aborted' | 'error' | 'finished';
+	start: (input: Input) => void;
+	resume: (resumeKey: string) => void;
+	abort: () => void;
+};
+
+export type ClientSideCallerOptions<ChunkType> = {
+	onEnd?: OnEndCallback;
+	onError?: OnErrorCallback;
+	onChunk?: OnChunkCallback<ChunkType>;
+	onStart?: OnStartCallback;
+	onAbort?: OnAbortCallback;
+	onStreamInfo?: OnStreamInfoCallback;
+};
+
+// river helper types
+
+export type InferRiverStream<T extends AnyRiverStream> =
+	T extends RiverStream<
+		infer InputType,
+		infer ChunkType,
+		infer IsResumable,
+		infer AdapterRequestType
+	>
+		? RiverStream<InputType, ChunkType, IsResumable, AdapterRequestType>
+		: never;
+
+export type InferRiverStreamInputType<T extends AnyRiverStream> =
+	T extends RiverStream<infer InputType, any, any, any> ? InputType : never;
+
+export type InferRiverStreamChunkType<T extends AnyRiverStream> =
+	T extends RiverStream<any, infer ChunkType, any, any> ? ChunkType : never;
+
+export type InferRiverStreamIsResumable<T extends AnyRiverStream> =
+	T extends RiverStream<any, any, infer IsResumable, any> ? IsResumable : never;
+
 // river adapters
 // THESE ARE JUST FOR SVELTEKIT, THESE WILL BE SEPARATED INTO THEIR OWN PACKAGES LATER...
+
+// CLIENT
+
+export type SvelteKitMakeClientSideCaller<InputType, ChunkType> = (
+	options: ClientSideCallerOptions<ChunkType>
+) => ClientSideCaller<InputType, ChunkType>;
+
+export type SvelteKitRiverClient<T extends RiverRouter> = {
+	[K in keyof T]: SvelteKitMakeClientSideCaller<
+		InferRiverStreamInputType<T[K]>,
+		InferRiverStreamChunkType<T[K]>
+	>;
+};
+
+// SERVER
 
 export type SvelteKitAdapterRequest = {
 	event: RequestEvent;
@@ -169,55 +237,6 @@ export type SvelteKitRiverEndpointHandler = <T extends RiverRouter>(
 // TODO: TO BE UPDATED BELOW...
 
 // HELPERS
-
-type InferRiverStream<T extends AnyRiverStream> =
-	T extends RiverStream<
-		infer InputType,
-		infer ChunkType,
-		infer IsResumable,
-		infer AdapterRequestType
-	>
-		? RiverStream<InputType, ChunkType, IsResumable, AdapterRequestType>
-		: never;
-
-type InferRiverStreamInputType<T extends AnyRiverStream> =
-	T extends RiverStream<infer InputType, any, any, any> ? InputType : never;
-
-type InferRiverStreamChunkType<T extends AnyRiverStream> =
-	T extends RiverStream<any, infer ChunkType, any, any> ? ChunkType : never;
-
-type InferRiverStreamIsResumable<T extends AnyRiverStream> =
-	T extends RiverStream<any, any, infer IsResumable, any> ? IsResumable : never;
-
-type OnSuccessCallback = () => void | Promise<void>;
-type OnErrorCallback = (error: RiverError) => void | Promise<void>;
-type OnChunkCallback<Chunk> = (chunk: Chunk, index: number) => void | Promise<void>;
-type OnStartCallback = () => void | Promise<void>;
-type OnStreamInfoCallback = (data: { runId: string; resumeKey: string }) => void | Promise<void>;
-type OnCancelCallback = () => void | Promise<void>;
-type OnResetCallback = () => void | Promise<void>;
-
-interface ClientSideCaller<Input, ChunkType> {
-	_phantom?: {
-		ChunkType: ChunkType;
-		InputType: Input;
-	};
-	status: 'idle' | 'running' | 'canceled' | 'error' | 'success';
-	start: (input: Input) => void;
-	resume: (resumeKey: string) => void;
-	stop: () => void;
-	reset: () => void;
-}
-
-interface ClientSideCallerOptions<Chunk> {
-	onSuccess?: OnSuccessCallback;
-	onError?: OnErrorCallback;
-	onChunk?: OnChunkCallback<Chunk>;
-	onStart?: OnStartCallback;
-	onCancel?: OnCancelCallback;
-	onStreamInfo?: OnStreamInfoCallback;
-	onReset?: OnResetCallback;
-}
 
 // AI SDK HELPERS
 type RiverAiSdkToolSet<T extends ClientSideCaller<any, TextStreamPart<any>>> =

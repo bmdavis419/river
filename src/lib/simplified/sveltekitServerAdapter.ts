@@ -116,7 +116,7 @@ export const riverEndpointHandler: SvelteKitRiverEndpointHandler = (router) => (
 
 		const { streamMethods, streamRunId, streamStorageId } = initStreamResult.value;
 
-		const runnerResult = await ResultAsync.fromPromise(
+		ResultAsync.fromPromise(
 			stream.runner({
 				input: inputResult.data,
 				streamRunId,
@@ -128,11 +128,11 @@ export const riverEndpointHandler: SvelteKitRiverEndpointHandler = (router) => (
 				} as SvelteKitAdapterRequest
 			}),
 			(e) => new RiverError('Failed to run stream', e, 'stream')
-		);
-
-		if (runnerResult.isErr()) {
-			return error(500, runnerResult.error);
-		}
+		).then((result) => {
+			if (result.isErr()) {
+				console.error('error running stream', result.error);
+			}
+		});
 
 		return new Response(initStreamResult.value.stream);
 	}

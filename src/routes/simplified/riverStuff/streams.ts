@@ -16,12 +16,8 @@ export const myFirstSimpleRiverStream = createRiverStream<
 		})
 	)
 	.provider(defaultRiverProvider())
-	.runner(async ({ stream, input, adapterRequest }) => {
+	.runner(async ({ stream, input }) => {
 		const { appendChunk, close } = stream;
-
-		const { event } = adapterRequest;
-
-		console.log('some framework metadata', event.route.id);
 
 		const { prompt } = input;
 
@@ -35,6 +31,7 @@ export const myFirstSimpleRiverStream = createRiverStream<
 			} else {
 				await appendChunk({ isDeej: false, letter: letter.toLowerCase() });
 			}
+			await new Promise((resolve) => setTimeout(resolve, 50));
 		}
 		await close();
 	});
