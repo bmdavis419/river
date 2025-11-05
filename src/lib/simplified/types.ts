@@ -1,20 +1,25 @@
 import type { RequestEvent } from '@sveltejs/kit';
-import type z from 'zod';
+import z from 'zod';
 import type { RiverError } from './errors.js';
 import type { AsyncIterableStream, TextStreamPart, Tool, ToolSet } from 'ai';
-import type { Result } from 'neverthrow';
+import type { Result, ResultAsync } from 'neverthrow';
 
 // resume tokens
 
 export type RiverResumptionToken = {
 	providerId: string;
+	routerStreamKey: string;
 	streamStorageId: string;
 	streamRunId: string;
 };
 
-export type DecodeRiverResumptionTokenFunc = (token: string) => RiverResumptionToken;
+export type DecodeRiverResumptionTokenFunc = (
+	token: string
+) => Result<RiverResumptionToken, RiverError>;
 
-export type EncodeRiverResumptionTokenFunc = (token: RiverResumptionToken) => string;
+export type EncodeRiverResumptionTokenFunc = (
+	token: RiverResumptionToken
+) => Result<string, RiverError>;
 
 // special chunks
 
@@ -55,8 +60,21 @@ export type RiverProvider<IsResumable extends boolean> = {
 	resumeStream: (
 		abortController: AbortController,
 		resumptionToken: RiverResumptionToken
-	) => Promise<ReadableStream<Uint8Array>>;
-	initStream: (abortController: AbortController) => Promise<RiverStreamActiveMethods<unknown>>;
+	) => Promise<Result<ReadableStream<Uint8Array>, RiverError>>;
+	initStream: (
+		abortController: AbortController,
+		routerStreamKey: string
+	) => Promise<
+		Result<
+			{
+				streamRunId: string;
+				streamStorageId: string;
+				streamMethods: RiverStreamActiveMethods<unknown>;
+				stream: ReadableStream<Uint8Array>;
+			},
+			RiverError
+		>
+	>;
 };
 
 // river streams
@@ -74,7 +92,8 @@ export type RiverStream<InputType, ChunkType, IsResumable extends boolean, Adapt
 
 type RiverStreamRunner<InputType, ChunkType, AdapterRequestType = null> = (args: {
 	input: InputType;
-	runId: string;
+	streamRunId: string;
+	streamStorageId: string;
 	stream: RiverStreamActiveMethods<ChunkType>;
 	abortSignal: AbortSignal;
 	adapterRequest: AdapterRequestType;
@@ -122,6 +141,17 @@ export type DecoratedRiverRouter<T extends RiverRouter> = {
 
 export type CreateRiverRouter = <T extends RiverRouter>(streams: T) => DecoratedRiverRouter<T>;
 
+// river server
+
+export const resumeRiverStreamParamsSchema = z.object({
+	resumeKey: z.string()
+});
+
+export const startRiverStreamBodySchema = z.object({
+	routerStreamKey: z.string(),
+	input: z.unknown()
+});
+
 // river adapters
 // THESE ARE JUST FOR SVELTEKIT, THESE WILL BE SEPARATED INTO THEIR OWN PACKAGES LATER...
 
@@ -129,7 +159,7 @@ export type SvelteKitAdapterRequest = {
 	event: RequestEvent;
 };
 
-type ServerEndpointHandler = <T extends RiverRouter>(
+export type SvelteKitRiverEndpointHandler = <T extends RiverRouter>(
 	router: DecoratedRiverRouter<T>
 ) => {
 	POST: (event: RequestEvent) => Promise<Response>;

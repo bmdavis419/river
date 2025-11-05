@@ -1,7 +1,7 @@
 import { Result } from 'neverthrow';
 import type { RiverSpecialErrorChunk } from './types.js';
 
-export type RiverErrorType = 'custom' | 'stream' | 'network' | 'storage' | 'unknown';
+export type RiverErrorType = 'custom' | 'stream' | 'network' | 'storage' | 'unknown' | 'internal';
 
 export const parseErrorChunk = (rawChunk: string): RiverSpecialErrorChunk => {
 	const chunkResult = Result.fromThrowable(
