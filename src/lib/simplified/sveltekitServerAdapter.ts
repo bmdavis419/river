@@ -54,10 +54,10 @@ export const riverEndpointHandler: SvelteKitRiverEndpointHandler = (router) => (
 			abortController.abort();
 		});
 
-		const resumedStream = await stream.provider.resumeStream(
+		const resumedStream = await stream.provider.resumeStream({
 			abortController,
-			decodedResumptionTokenResult.value
-		);
+			resumptionToken: decodedResumptionTokenResult.value
+		});
 
 		if (resumedStream.isErr()) {
 			return error(500, resumedStream.error);
@@ -108,32 +108,20 @@ export const riverEndpointHandler: SvelteKitRiverEndpointHandler = (router) => (
 			abortController.abort();
 		});
 
-		const initStreamResult = await stream.provider.initStream(abortController, routerStreamKey);
+		const initStreamResult = await stream.provider.initStream({
+			abortController,
+			adapterRequest: {
+				event
+			},
+			routerStreamKey,
+			input: inputResult.data,
+			runnerFn: stream.runner
+		});
 
 		if (initStreamResult.isErr()) {
 			return error(500, initStreamResult.error);
 		}
 
-		const { streamMethods, streamRunId, streamStorageId } = initStreamResult.value;
-
-		ResultAsync.fromPromise(
-			stream.runner({
-				input: inputResult.data,
-				streamRunId,
-				streamStorageId,
-				stream: streamMethods,
-				abortSignal: abortController.signal,
-				adapterRequest: {
-					event
-				} as SvelteKitAdapterRequest
-			}),
-			(e) => new RiverError('Failed to run stream', e, 'stream')
-		).then((result) => {
-			if (result.isErr()) {
-				console.error('error running stream', result.error);
-			}
-		});
-
-		return new Response(initStreamResult.value.stream);
+		return new Response(initStreamResult.value);
 	}
 });

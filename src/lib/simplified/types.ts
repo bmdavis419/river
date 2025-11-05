@@ -57,24 +57,17 @@ type RiverStreamActiveMethods<ChunkType> = {
 export type RiverProvider<IsResumable extends boolean> = {
 	providerId: string;
 	isResumable: IsResumable;
-	resumeStream: (
-		abortController: AbortController,
-		resumptionToken: RiverResumptionToken
-	) => Promise<Result<ReadableStream<Uint8Array>, RiverError>>;
-	initStream: (
-		abortController: AbortController,
-		routerStreamKey: string
-	) => Promise<
-		Result<
-			{
-				streamRunId: string;
-				streamStorageId: string;
-				streamMethods: RiverStreamActiveMethods<unknown>;
-				stream: ReadableStream<Uint8Array>;
-			},
-			RiverError
-		>
-	>;
+	resumeStream: (data: {
+		abortController: AbortController;
+		resumptionToken: RiverResumptionToken;
+	}) => Promise<Result<ReadableStream<Uint8Array>, RiverError>>;
+	initStream: (data: {
+		abortController: AbortController;
+		adapterRequest: unknown;
+		routerStreamKey: string;
+		input: unknown;
+		runnerFn: RiverStreamRunner<unknown, unknown, unknown>;
+	}) => Promise<Result<ReadableStream<Uint8Array>, RiverError>>;
 };
 
 // river streams

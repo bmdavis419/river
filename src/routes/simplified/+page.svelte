@@ -16,13 +16,17 @@
 		onStart: () => {
 			console.log('Starting first stream');
 		},
-		onEnd: () => {
-			console.log('Finished first stream');
+		onEnd: (data) => {
+			console.log('Finished first stream', data);
 		},
 		onError: (error) => {
 			console.error(error);
 		}
 	});
+
+	const handleAbort = () => {
+		firstStreamCaller.abort();
+	};
 
 	const handleSendMessage = () => {
 		if (trimmedMessage) {
@@ -45,6 +49,12 @@
 		class="self-end rounded-lg bg-primary px-6 py-2 font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
 	>
 		Send
+	</button>
+	<button
+		onclick={handleAbort}
+		class="self-end rounded-lg bg-red-500 px-6 py-2 font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+	>
+		Abort
 	</button>
 	<p>{fullResponse}</p>
 </div>
