@@ -400,7 +400,7 @@ import { myRiverRouter } from './router';
 export const myServerCaller = createServerSideCaller(myRiverRouter);
 ```
 
-** run in the background **
+**run in the background**
 
 ```ts
 // src/lib/demo.remote.ts
@@ -436,7 +436,7 @@ export const remoteStartUnreliableStreamInBg = command(
 );
 ```
 
-** resume a stream on the server **
+**resume a stream on the server**
 
 ```ts
 // src/lib/demo.remote.ts
@@ -482,7 +482,7 @@ export const remoteResumeUnreliableStream = command(
 );
 ```
 
-** run synchronously **
+**run synchronously**
 
 ```ts
 // src/lib/demo.remote.ts
