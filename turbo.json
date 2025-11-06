@@ -4,7 +4,8 @@
 	"tasks": {
 		"build": {
 			"dependsOn": ["^build"],
-			"inputs": ["$TURBO_DEFAULT$"]
+			"inputs": ["$TURBO_DEFAULT$"],
+			"outputs": ["dist/**", "build/**", ".svelte-kit/**"]
 		},
 		"publish": {
 			"cache": false
