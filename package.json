@@ -1,86 +1,34 @@
 {
-	"name": "@davis7dotsh/river-alpha",
-	"description": "a trpc like experience for agents and streams",
-	"version": "0.3.0",
-	"homepage": "https://github.com/bmdavis419/river",
-	"author": "Ben Davis (https://davis7.sh)",
-	"contributors": [
-		{
-			"name": "Ben Davis",
-			"url": "https://davis7.sh"
-		}
-	],
-	"main": "./dist/index.js",
-	"license": "MIT",
-	"publishConfig": {
-		"access": "public"
-	},
-	"repository": {
-		"type": "git",
-		"url": "git+https://github.com/bmdavis419/river.git"
-	},
+	"name": "@davis7dotsh/river",
+	"private": true,
 	"scripts": {
-		"dev": "vite dev",
-		"build": "vite build && bun run prepack",
-		"preview": "vite preview",
-		"prepare": "svelte-kit sync || echo ''",
-		"prepack": "svelte-kit sync && svelte-package && publint",
-		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
-		"format": "prettier --write .",
-		"lint": "prettier --check ."
-	},
-	"files": [
-		"dist",
-		"!dist/**/*.test.*",
-		"!dist/**/*.spec.*"
-	],
-	"sideEffects": [
-		"**/*.css"
-	],
-	"svelte": "./dist/index.js",
-	"types": "./dist/index.d.ts",
-	"type": "module",
-	"exports": {
-		".": {
-			"types": "./dist/index.d.ts",
-			"svelte": "./dist/index.js"
-		}
-	},
-	"peerDependencies": {
-		"svelte": "^5.0.0"
+		"dev": "turbo run dev",
+		"lint": "turbo run lint",
+		"format": "prettier --write \"**/*.{ts,tsx,md}\"",
+		"clean": "find . -type d \\( -name \"node_modules\" -o -name \"dist\" -o -name \"build\" -o -name \".turbo\" -o -name \".svelte-kit\" \\) -prune -exec rm -rf {} + 2>/dev/null || true",
+		"check-types": "turbo run check-types",
+		"start:sandbox": "turbo run --filter=@davis7dotsh/river-sandbox start",
+		"build:all": "turbo run build",
+		"build:sandbox": "turbo run --filter=@davis7dotsh/river-sandbox build",
+		"build:redis": "turbo run --filter=@davis7dotsh/river-provider-redis build",
+		"build:core": "turbo run --filter=@davis7dotsh/river-core build",
+		"build:svelte": "turbo run --filter=@davis7dotsh/river-adapter-sveltekit build",
+		"publish:all": "turbo run publish",
+		"publish:redis": "turbo run --filter=@davis7dotsh/river-provider-redis publish",
+		"publish:core": "turbo run --filter=@davis7dotsh/river-core publish",
+		"publish:svelte": "turbo run --filter=@davis7dotsh/river-adapter-sveltekit publish"
 	},
 	"devDependencies": {
-		"@openrouter/ai-sdk-provider": "^1.2.0",
-		"@sveltejs/adapter-vercel": "^5.10.3",
-		"@sveltejs/kit": "^2.46.4",
-		"@sveltejs/package": "^2.5.4",
-		"@sveltejs/vite-plugin-svelte": "^6.2.1",
-		"@tailwindcss/typography": "^0.5.19",
-		"@tailwindcss/vite": "^4.1.14",
-		"ai": "^5.0.68",
 		"prettier": "^3.6.2",
-		"prettier-plugin-svelte": "^3.4.0",
-		"prettier-plugin-tailwindcss": "^0.6.14",
-		"publint": "^0.3.14",
-		"svelte": "^5.39.11",
-		"svelte-check": "^4.3.3",
-		"tailwindcss": "^4.1.14",
-		"typescript": "^5.9.3",
-		"vite": "^7.1.9"
+		"turbo": "^2.6.0",
+		"typescript": "^5.9.3"
 	},
-	"keywords": [
-		"svelte",
-		"sveltekit",
-		"streams",
-		"web streams",
-		"ai"
-	],
-	"dependencies": {
-		"@s2-dev/streamstore": "^0.15.13",
-		"@vercel/functions": "^3.1.4",
-		"ioredis": "^5.8.2",
-		"neverthrow": "^8.2.0",
-		"zod": "^4.1.12"
-	}
+	"engines": {
+		"node": ">=22"
+	},
+	"packageManager": "bun@1.3.1",
+	"workspaces": [
+		"apps/*",
+		"packages/*"
+	]
 }

@@ -1,0 +1,26 @@
+<script lang="ts">
+	import { myRiverClient } from '$lib/river/client';
+
+	// ALL of this is type safe, feels just like TRPC
+	const { start, stop, resume } = myRiverClient.aRiverStream({
+		onChunk: (chunk) => {
+			// fully type safe!
+			console.log(chunk)
+		},
+		onStart: () => {
+			allChunks = [];
+		},
+		onEnd: () => {
+			console.log("stream ended")
+		},
+		onError: (error) => {
+			console.error(error);
+		},
+		onAbort: () => {
+			console.log('Aborted stream');
+		},
+		onStreamInfo: ({ encodedResumptionToken }) => {
+			console.log("resume with:", encodedResumptionToken)
+		}
+	});
+</script>

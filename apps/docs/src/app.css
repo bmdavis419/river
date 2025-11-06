@@ -1,0 +1,33 @@
+@import 'tailwindcss';
+@plugin '@tailwindcss/typography';
+
+@theme {
+	--color-primary: #6fb0ff;
+	--font-family-geist:
+		'Geist', system-ui, -apple-system, 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue',
+		'Arial', sans-serif;
+	--font-family-geist-mono: 'GeistMono', monospace;
+}
+
+@font-face {
+	font-family: 'GeistMono';
+	src: url('/GeistMono[wght].ttf') format('truetype-variations');
+	font-weight: 100 900; /* Specify the full range of weights */
+	font-style: normal;
+}
+
+@font-face {
+	font-family: 'Geist';
+	src: url('/Geist[wght].ttf') format('truetype-variations');
+	font-weight: 100 900; /* Specify the full range of weights */
+	font-style: normal;
+}
+
+body {
+	@apply text-neutral-100;
+	background:
+		radial-gradient(ellipse at top left, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
+		radial-gradient(ellipse at top right, rgba(96, 165, 250, 0.06) 0%, transparent 50%),
+		radial-gradient(ellipse at bottom left, rgba(59, 130, 246, 0.06) 0%, transparent 50%),
+		radial-gradient(ellipse at bottom right, rgba(96, 165, 250, 0.08) 0%, transparent 50%), #232d41;
+}

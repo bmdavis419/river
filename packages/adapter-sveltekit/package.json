@@ -1,0 +1,69 @@
+{
+	"name": "@davis7dotsh/river-adapter-sveltekit",
+	"version": "0.1.0",
+	"description": "sveltekit adapter for river",
+	"keywords": [
+		"river",
+		"sveltekit",
+		"svelte",
+		"streaming",
+		"ai"
+	],
+	"publishConfig": {
+		"access": "public"
+	},
+	"author": "Ben Davis (https://davis7.sh)",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/bmdavis419/river",
+		"directory": "packages/adapter-sveltekit"
+	},
+	"scripts": {
+		"dev": " nodemon --watch src --ext ts,svelte,css,html,json --exec 'bun run build'",
+		"build": "bunx --bun vite build && npm run prepack",
+		"prepare": "svelte-kit sync || echo ''",
+		"prepack": "svelte-kit sync && svelte-package && publint",
+		"publish": "npm publish",
+		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+		"format": "prettier --write .",
+		"lint": "prettier --check ."
+	},
+	"files": [
+		"dist",
+		"!dist/**/*.test.*",
+		"!dist/**/*.spec.*"
+	],
+	"sideEffects": [
+		"**/*.css"
+	],
+	"svelte": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"type": "module",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"svelte": "./dist/index.js"
+		}
+	},
+	"peerDependencies": {
+		"svelte": "^5.0.0",
+		"@davis7dotsh/river-core": "*",
+		"neverthrow": "^8.2.0"
+	},
+	"devDependencies": {
+		"@sveltejs/kit": "^2.47.1",
+		"svelte-adapter-bun": "^1.0.1",
+		"@sveltejs/package": "^2.5.4",
+		"@sveltejs/vite-plugin-svelte": "^6.2.1",
+		"nodemon": "^3.1.10",
+		"prettier": "^3.6.2",
+		"prettier-plugin-svelte": "^3.4.0",
+		"publint": "^0.3.14",
+		"svelte": "^5.41.0",
+		"svelte-check": "^4.3.3",
+		"typescript": "^5.9.3",
+		"vite": "^7.1.10"
+	}
+}

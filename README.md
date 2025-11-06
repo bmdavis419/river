@@ -1,9 +1,6 @@
-# river - 0.3.0
+# river
 
 _an experiment by <a href="https://davis7.sh" target="_blank">ben davis</a> that went WAY too far..._
-
-> [!WARNING]
-> this repo is fully deprecated, the new version is here: https://github.com/bmdavis419/river-mono
 
 ## it's TRPC, but for agents/streams...
 
@@ -12,250 +9,542 @@ _an experiment by <a href="https://davis7.sh" target="_blank">ben davis</a> that
 	import { myRiverClient } from '$lib/river/client';
 
 	// ALL of this is type safe, feels just like TRPC
-	const { start, stop, status } = myRiverClient.basicExample({
-		onStart: () => {
-			console.log('starting basic example');
-		},
+	const { start, stop, resume } = myRiverClient.aRiverStream({
 		onChunk: (chunk) => {
-			// full type safety on the chunks
-			console.log(chunk);
+			// fully type safe!
+			console.log(chunk)
+		},
+		onStart: () => {
+			allChunks = [];
+		},
+		onEnd: () => {
+			console.log("stream ended")
 		},
 		onError: (error) => {
 			console.error(error);
 		},
-		onSuccess: () => {
-			console.log('Success');
+		onAbort: () => {
+			console.log('Aborted stream');
 		},
-		onCancel: () => {
-			console.log('Canceled');
-		},
-		onStreamInfo: (streamInfo) => {
-			console.log(streamInfo);
+		onStreamInfo: ({ encodedResumptionToken }) => {
+			console.log("resume with:", encodedResumptionToken)
 		}
 	});
 </script>
 ```
 
-```bash
-bun i @davis7dotsh/river-alpha
-```
+this project is in active development. not yet recommended for production use, but getting there pretty fast...
 
-**this is alpha software, use it at your own risk. api's will change, bugs will be fixed, features will be added, etc...**
+## sveltekit getting started
 
-## R O A D M A P
+_guide for a fully resumable stream in sveltekit_
 
-_everything i want to do with this project, goal is to have this shipped with a usable beta by the end of november_
+you can see the full demo [here](https://github.com/bmdavis419/redis-river-demo)
 
-0. get a set of stable api's for v1
-
-i'm pretty confident with the user facing stuff right now, but i think one more pass is worth it before i go through the slog below
-
-- deeper builder pattern for the agents (create => input => provider => runner). this is gonna make it so you have to put the chunk type outside of the runner which sucks, but the current setup is so damn weird that i think it's worth that tradeoff
-- cleanup provider interface
-- finalize client interface
-- iron out abort vs cancel logic
-- error handling polishing
-
-1. monorepo migration
-
-this sveltekit project served me well for just screwing around and trying things out, but i will absolutely need a real monorepo if I'm going to make this work long term. the good news is i for some reason figured out how to do that recently: https://github.com/bmdavis419/r8y-v3
-
-- river core package (router and agents builder)
-- framework packages (server and client stuff) for tanstack start and sveltekit
-- provider packages (for stream resuming and durability)
-
-2. mentioned above, but tanstack start support
-
-3. real documentation site & homepage & good cursor rules & good out of the box prompt to add this to your projects
-
-4. "real world" examples OSS'd
-
-_eventually want to do_
-
-- react native + expo support
-
-## what you get
-
-- full type safety
-- rpc-like function calling
-- trpc mutation like interface for consuming the streams
-- ai sdk streaming support **with full stack type safety**
-- custom stream support **with zod validation on chunks**
-
-this project does actually work right now, but it is very early in development and NOT recommended for production use. **it is in alpha, the apis will change a lot...**
-
-## getting started using the package
-
-if you want to try this out, it's now available on [npm](https://www.npmjs.com/package/@davis7dotsh/river-alpha)!
-
-here are a couple of examples, they're both are fully type safe, are pleasant to work in, and work great: <a href="https://github.com/bmdavis419/river-examples" target="_blank">check them out</a>
-
-### here's a quick getting started guide for custom streams
-
-0. create a new sveltekit project (if you don't have one already)
+0. init a sveltekit project (select: minimal, typescript, prettier, tailwindcss, and then typography)
 
 ```bash
 bunx sv create river-demo
 ```
 
-1. install dependencies
+1. install the dependencies
 
-```bash
-bun i @davis7dotsh/river-alpha zod
+```
+bun add @davis7dotsh/river-core@latest @davis7dotsh/river-adapter-sveltekit@latest @davis7dotsh/river-provider-redis@latest
 ```
 
-2. setup your first stream
+_peer dependencies you also need to install:_
+
+```bash
+bun add zod ioredis neverthrow
+```
+
+_dependencies for this demo:_
+
+```bash
+bun add runed ai @openrouter/ai-sdk-provider marked
+bun add -d svelte-adapter-bun
+bun remove @sveltejs/adapter-auto
+```
+
+2. add env vars (you will need a redis db and an openrouter api key)
+
+```.env.local
+# railway & upstash are great options
+REDIS_URL=redis://localhost:6379
+
+# google open router u will find it
+OPENROUTER_API_KEY=your-openrouter-api-key
+```
+
+3. setup the sveltekit project
+
+```package.json
+	"scripts": {
+		"dev": " bunx --bun vite dev",
+		"build": "bunx --bun vite build",
+		"preview": "bunx --bun vite preview",
+		"start": "bun run ./build",
+		"prepare": "svelte-kit sync || echo ''",
+		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+		"format": "prettier --write .",
+		"lint": "prettier --check ."
+	},
+```
+
+```svelte.config.js
+import adapter from 'svelte-adapter-bun';
+```
+
+4. start the dev server
+
+```bash
+bun dev
+```
+
+5. create a redis instance
+
+```ts
+// src/lib/db/index.ts
+import Redis from 'ioredis';
+import { building } from '$app/environment';
+import { env } from '$env/dynamic/private';
+
+const globalForDb = globalThis as unknown as {
+	redisClient: Redis | undefined;
+};
+
+const getClient = () => {
+	if (building) {
+		throw new Error('Cannot access database during build');
+	}
+
+	if (!globalForDb.redisClient) {
+		globalForDb.redisClient = new Redis(env.REDIS_URL);
+	}
+
+	return globalForDb.redisClient;
+};
+
+export const redisClient = new Proxy({} as Redis, {
+	get: (_, prop) => {
+		const client = getClient();
+		return client[prop as keyof Redis];
+	}
+});
+```
+
+6. create a river stream
 
 ```ts
 // src/lib/river/streams.ts
-import { RIVER_STREAMS } from '@davis7dotsh/river-alpha';
-import { z } from 'zod';
+import { redisClient } from '$lib/db';
+import { createRiverStream } from '@davis7dotsh/river-core';
+import { redisProvider } from '@davis7dotsh/river-provider-redis';
+import { streamText, tool, type AsyncIterableStream } from 'ai';
+import z from 'zod';
+import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+import { env } from '$env/dynamic/private';
 
-export const myFirstNewRiverStream = RIVER_STREAMS.createRiverStream()
+const openrouter = createOpenRouter({
+	apiKey: env.OPENROUTER_API_KEY
+});
+
+const isImposterTool = tool({
+	name: 'is_imposter',
+	description: 'Check if the user is an imposter',
+	inputSchema: z.object({
+		username: z.string()
+	}),
+	execute: async () => {
+		// imagine we did something with the username and got a result
+		const randomNumber = Math.random();
+		if (randomNumber < 0.5) {
+			return {
+				isImposter: true
+			};
+		}
+		return {
+			isImposter: false
+		};
+	}
+});
+
+const unreliableAgent = (question: string) => {
+	const { fullStream } = streamText({
+		model: openrouter('anthropic/claude-haiku-4.5'),
+		prompt: question,
+		tools: {
+			isImposterTool
+		},
+		stopWhen: stepCountIs(5),
+		system: `You are an agent who's job is to answer whatever question a user may have. The trick is that they may be an imposter and you need to check if they are before answering the question. If they are an imposter, don't tell them you know, just give them an answer that is the direct opposite of the truth.
+
+			Here is the user's username: user_1234258sd`
+	});
+
+	return fullStream;
+};
+
+type ExtractAiSdkChunkType<T> = T extends AsyncIterableStream<infer U> ? U : never;
+
+type ChunkType = ExtractAiSdkChunkType<ReturnType<typeof unreliableAgent>>;
+
+export const unreliableAgentStream = createRiverStream<ChunkType>()
 	.input(
 		z.object({
-			yourName: z.string()
+			question: z.string()
 		})
 	)
-	.runner(async (stuff) => {
-		const { input, initStream, abortSignal } = stuff;
-
-		const activeStream = await initStream(
-			// this is where the type safety happens, the generic type is the chunk type
-			RIVER_PROVIDERS.defaultRiverStorageProvider<{
-				isVowel: boolean;
-				letter: string;
-			}>()
-		);
-
-		const { yourName } = input;
-
-		activeStream.sendData(async ({ appendChunk, close }) => {
-			const letters = yourName.split('');
-			const onlyLetters = letters.filter((letter) => letter.match(/[a-zA-Z]/));
-			for await (const letter of onlyLetters) {
-				if (abortSignal.aborted) {
-					break;
-				}
-				appendChunk({ isVowel: !!letter.match(/[aeiou]/i), letter });
-				await new Promise((resolve) => setTimeout(resolve, 100));
+	.provider(
+		redisProvider({
+			streamStorageId: 'unreliable-agent',
+			redisClient,
+			waitUntil: (promise) => {
+				promise.then(() => {
+					console.log('stream completed');
+				});
 			}
-			close();
-		});
+		})
+	)
+	.runner(async ({ input, stream }) => {
+		const { appendChunk, close } = stream;
 
-		return activeStream;
+		const agentStream = unreliableAgent(input.question);
+
+		for await (const chunk of agentStream) {
+			appendChunk(chunk);
+		}
+
+		await close();
 	});
 ```
 
-3. setup your router
+7. create a river router
 
 ```ts
 // src/lib/river/router.ts
-import { RIVER_STREAMS } from '$lib/river/streams.js';
-import { myFirstNewRiverStream } from './streams.js';
+import { createRiverRouter } from '@davis7dotsh/river-core';
+import { unreliableAgentStream } from './streams';
 
-export const myFirstRiverRouter = RIVER_STREAMS.createRiverRouter({
-	vowelCounter: myFirstNewRiverStream
+export const myRiverRouter = createRiverRouter({
+	unreliableAgent: unreliableAgentStream
 });
 
-export type MyFirstRiverRouter = typeof myFirstRiverRouter;
+export type MyRiverRouter = typeof myRiverRouter;
 ```
 
-4. setup the endpoint
+8. create the endpoint handler
 
 ```ts
 // src/routes/api/river/+server.ts
 import { myRiverRouter } from '$lib/river/router';
-import { RIVER_SERVERS } from '@davis7dotsh/river-alpha';
+import { riverEndpointHandler } from '@davis7dotsh/river-adapter-sveltekit';
 
-export const { POST, GET } = RIVER_SERVERS.createSvelteKitEndpointHandler({
-	streams: myRiverRouter
-});
+export const { GET, POST } = riverEndpointHandler(myRiverRouter);
 ```
 
-5. setup the client
+9. create the river client
 
 ```ts
-// src/lib/river/client.ts
-import { RIVER_CLIENT_SVELTEKIT } from '$lib/index.js';
-import type { MyFirstRiverRouter } from './router.js';
+import { createRiverClient } from '@davis7dotsh/river-adapter-sveltekit';
+import type { MyRiverRouter } from './router';
 
-export const myFirstRiverClient =
-	RIVER_CLIENT_SVELTEKIT.createSvelteKitRiverClient<MyFirstRiverRouter>('/examples');
+export const myRiverClient = createRiverClient<MyRiverRouter>('/api/river');
 ```
 
-6. use your agent on the client with a client side caller
+10. create the page to consume the river stream and update the global styles to feel a bit nicer
+
+```css
+/* src/app.css */
+@import 'tailwindcss';
+@plugin '@tailwindcss/typography';
+
+body {
+	@apply bg-neutral-900 text-neutral-50;
+}
+```
 
 ```svelte
-<!-- src/routes/+page.svelte -->
 <script lang="ts">
-	import { myFirstRiverClient } from '$lib/river/client.js';
+	import { myRiverClient } from '$lib/river/client';
+	import { marked } from 'marked';
+	import { useSearchParams } from 'runed/kit';
+	import { onMount } from 'svelte';
+	import z from 'zod';
 
-	// this works just like mutations in trpc, it will not actually run until you call start
-	// the callbacks are optional, and will fire when they are defined and the agent starts
-	const { start, stop, status } = myFirstRiverClient.vowelCounter({
-		onStart: () => {
-			console.log('Starting');
-		},
+	const searchParamsSchema = z.object({
+		resumeKey: z.string().default('')
+	});
+
+	const params = useSearchParams(searchParamsSchema);
+
+	const resumeKey = $derived(params.resumeKey);
+
+	let question = $state('Is the earth really flat?');
+	const trimmedQuestion = $derived(question.trim());
+
+	let answer = $state('');
+	const parsedAnswer = $derived(marked(answer, { async: false }));
+	let wasImposer = $state<boolean | undefined>(undefined);
+
+	const agentCaller = myRiverClient.unreliableAgent({
 		onChunk: (chunk) => {
-			console.log(chunk);
+			if (chunk.type === 'text-delta') {
+				answer += chunk.text;
+			} else if (chunk.type === 'tool-result') {
+				if (!chunk.dynamic) {
+					wasImposer = chunk.output.isImposter;
+				}
+			}
+		},
+		onStart: () => {
+			console.log('starting stream');
+			answer = '';
+			wasImposer = false;
+		},
+		onEnd: () => {
+			console.log('stream ended');
 		},
 		onError: (error) => {
-			console.error(error);
+			console.error('stream error', error);
 		},
-		onSuccess: () => {
-			console.log('Success');
-		},
-		onCancel: () => {
-			console.log('Canceled');
-		},
-		onStreamInfo: (streamInfo) => {
-			console.log(streamInfo);
+		onStreamInfo: (info) => {
+			if (info.encodedResumptionToken) {
+				params.resumeKey = info.encodedResumptionToken;
+			}
 		}
 	});
+
+	onMount(() => {
+		if (resumeKey) {
+			agentCaller.resume(resumeKey);
+		}
+	});
+
+	const status = $derived(agentCaller.status);
+
+	const handleAsk = () => {
+		if (!trimmedQuestion) return;
+		agentCaller.start({
+			question: trimmedQuestion
+		});
+	};
+
+	const handleClear = () => {
+		answer = '';
+		wasImposer = undefined;
+		params.resumeKey = '';
+	};
 </script>
 
-<!-- some UI to to consume and start the stream -->
+<div class="mx-auto flex max-w-4xl flex-col gap-4 p-6">
+	<textarea
+		bind:value={question}
+		placeholder="Enter your question..."
+		class="min-h-[200px] w-full resize-none rounded-lg border border-gray-300 p-4 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+	></textarea>
+
+	<div class="text-sm text-gray-500">{status}</div>
+
+	<div class="mt-4 flex gap-4">
+		<button
+			onclick={handleAsk}
+			class="rounded-lg bg-blue-600 px-6 py-2 text-white hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+		>
+			Ask
+		</button>
+		<button
+			onclick={handleClear}
+			class="rounded-lg bg-gray-600 px-6 py-2 text-white hover:bg-gray-700 focus:ring-2 focus:ring-gray-500 focus:outline-none"
+		>
+			Clear Answer
+		</button>
+	</div>
+
+	{#if status === 'running' && wasImposer === undefined && !parsedAnswer}
+		<div class="text-sm text-gray-500">Thinking...</div>
+	{/if}
+
+	{#if parsedAnswer}
+		<div>
+			{#if wasImposer}
+				<div class="text-red-500">
+					<p>You are an imposter!</p>
+				</div>
+			{:else}
+				<div class="text-green-500">
+					<p>You are not an imposter!</p>
+				</div>
+			{/if}
+		</div>
+		<div class="mt-4">
+			<div class="prose max-w-none prose-invert">{@html parsedAnswer}</div>
+		</div>
+	{/if}
+</div>
 ```
 
-## project info
+## server side caller
 
-### why make this?
+you can also run a river stream server side either in the background (requires provider that supports resuming) or synchronously
 
-- streams went from something you touch every once and a while, to something we're using all the time
-- i want typesafety
-- mutations are awesome in tanstack query, i want them for streams
-- rpc >>>>>>
-- streams are a pain to consume out of the box (readers and encoders and raw fetch and type casting and more annoying shit)
-
-### helper types
-
-these are a few helper types that really help with getting good type safety in your clients. the names are a bit verbose, but at least they're descriptive...
+**create a server side caller**
 
 ```ts
-// AI SDK SPECIFIC HELPERS (for agents using Vercel AI SDK)
+// src/lib/river/serverCaller.ts
+import { createServerSideCaller } from '@davis7dotsh/river-core';
+import { myRiverRouter } from './router';
 
-// gets the "tool set" type (a record of tool names to their tool types) for an ai-sdk agent
-type AiSdkAgentToolSet = RiverAiSdkToolSet<typeof riverClient.exampleAiSdkAgent>;
-
-// gets the input type for a tool call for an ai-sdk agent. pass in the tool set type and the tool name
-type ImposterToolCallInputType = RiverAiSdkToolInputType<AiSdkAgentToolSet, 'imposterCheck'>;
-
-// gets the output type for a tool call for an ai-sdk agent. pass in the tool set type and the tool name
-type ImposterToolCallOutputType = RiverAiSdkToolOutputType<AiSdkAgentToolSet, 'imposterCheck'>;
-
-// GENERAL HELPERS (for any agent)
-
-// gets the chunk type for an agent (the thing passed to the onChunk callback)
-type AgentChunkType = RiverStreamChunkType<typeof riverClient.exampleAgent>;
-
-// gets the input type for an agent (the thing passed to the start function)
-type AgentInputType = RiverStreamInputType<typeof riverClient.exampleAgent>;
-
-// SERVER SIDE HELPERS (for use in your agent definitions)
-
-// infers the chunk type from an AI SDK stream (useful for typing your storage provider)
-type AiSdkChunkType = InferAiSdkChunkType<typeof fullStream>;
+export const myServerCaller = createServerSideCaller(myRiverRouter);
 ```
 
-if you have feedback or want to contribute, don't hesitate. best place to reach out is on my twitter <a href="https://x.com/@bmdavis419" target="_blank">@bmdavis419</a>
+** run in the background **
+
+```ts
+// src/lib/demo.remote.ts
+import { command, getRequestEvent } from '$app/server';
+import z from 'zod';
+import { myServerCaller } from './river/serverCaller';
+import { error } from '@sveltejs/kit';
+
+export const remoteStartUnreliableStreamInBg = command(
+	z.object({
+		prompt: z.string()
+	}),
+	async ({ prompt }) => {
+		const event = getRequestEvent();
+		const bgStartResult = await myServerCaller.redisResume.startStreamInBackground({
+			input: {
+				prompt
+			},
+			adapterRequest: {
+				event
+			}
+		});
+
+		if (bgStartResult.isErr()) {
+			console.error(bgStartResult.error);
+			return error(500, bgStartResult.error);
+		}
+
+		return {
+			resumeKey: bgStartResult.value.encodedResumptionToken
+		};
+	}
+);
+```
+
+** resume a stream on the server **
+
+```ts
+// src/lib/demo.remote.ts
+import { command, getRequestEvent } from '$app/server';
+import z from 'zod';
+import { myServerCaller } from './river/serverCaller';
+import { error } from '@sveltejs/kit';
+
+export const remoteResumeUnreliableStream = command(
+	z.object({
+		resumeKey: z.string()
+	}),
+	async ({ resumeKey }) => {
+		const streamResult = await myServerCaller.redisResume.resumeStream({
+			resumeKey
+		});
+
+		if (streamResult.isErr()) {
+			console.error(streamResult.error);
+			return error(500, streamResult.error);
+		}
+
+		let totalLetters = 0;
+		let totalVowels = 0;
+
+		for await (const chunk of streamResult.value) {
+			if (chunk.type === 'chunk') {
+				if (chunk.chunk.isVowel) {
+					totalVowels++;
+				}
+				totalLetters++;
+			}
+			if (chunk.type === 'special') {
+				console.log('got special chunk', chunk.special);
+			}
+		}
+
+		return {
+			totalLetters,
+			totalVowels
+		};
+	}
+);
+```
+
+** run synchronously **
+
+```ts
+// src/lib/demo.remote.ts
+import { command, getRequestEvent } from '$app/server';
+import z from 'zod';
+import { myServerCaller } from './river/serverCaller';
+import { error } from '@sveltejs/kit';
+
+export const remoteRunUnreliableStream = command(
+	z.object({
+		prompt: z.string()
+	}),
+	async ({ prompt }) => {
+		const event = getRequestEvent();
+		const streamResult = await myServerCaller.redisResume.startStreamAndConsume({
+			input: {
+				prompt
+			},
+			adapterRequest: {
+				event
+			}
+		});
+
+		if (streamResult.isErr()) {
+			console.error(streamResult.error);
+			return error(500, streamResult.error);
+		}
+
+		const stream = streamResult.value;
+		let totalLetters = 0;
+		let resumeKey: string | null = null;
+		let totalVowels = 0;
+
+		for await (const chunk of stream) {
+			if (chunk.type === 'special') {
+				if (chunk.special.RIVER_SPECIAL_TYPE_KEY === 'stream_start') {
+					resumeKey = chunk.special.encodedResumptionToken ?? null;
+				}
+			}
+			if (chunk.type === 'chunk') {
+				if (chunk.chunk.isVowel) {
+					totalVowels++;
+				}
+				totalLetters++;
+			}
+		}
+
+		return {
+			totalVowels,
+			totalLetters,
+			resumeKey
+		};
+	}
+);
+```
+
+## roadmap:
+
+1. make the docs actually real & useful:
+   - pages for each piece of the library with good examples
+   - automatic setup with llm prompts (copy into cursor agent and get river working in seconds)
+2. really good cursor rules for river
+3. tanstack start adapter for river
+4. s2 provider for river
+5. more complex real world examples for river

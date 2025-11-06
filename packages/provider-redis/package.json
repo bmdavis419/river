@@ -1,0 +1,52 @@
+{
+	"name": "@davis7dotsh/river-provider-redis",
+	"version": "0.1.0",
+	"description": "redis provider for river",
+	"keywords": [
+		"river",
+		"redis",
+		"streaming",
+		"realtime"
+	],
+	"publishConfig": {
+		"access": "public"
+	},
+	"author": "Ben Davis (https://davis7.sh)",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/bmdavis419/river",
+		"directory": "packages/provider-redis"
+	},
+	"type": "module",
+	"main": "./dist/index.mjs",
+	"types": "./dist/index.d.mts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.mts",
+			"import": "./dist/index.mjs"
+		}
+	},
+	"files": [
+		"dist"
+	],
+	"scripts": {
+		"dev": "tsdown --watch ./src",
+		"build": "tsdown",
+		"prepack": "bun run build",
+		"publish": "npm publish",
+		"format": "prettier --write .",
+		"lint": "prettier --check ."
+	},
+	"devDependencies": {
+		"@davis7dotsh/river-ts-config": "*",
+		"@types/bun": "latest",
+		"tsdown": "^0.16.0",
+		"typescript": "^5.9.3"
+	},
+	"peerDependencies": {
+		"ioredis": "^5.8.2",
+		"@davis7dotsh/river-core": "*",
+		"neverthrow": "^8.2.0"
+	}
+}

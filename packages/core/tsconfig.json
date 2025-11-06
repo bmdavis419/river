@@ -1,0 +1,3 @@
+{
+  "extends": "@davis7dotsh/river-ts-config/base.json",
+}

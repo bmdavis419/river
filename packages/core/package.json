@@ -1,0 +1,51 @@
+{
+	"name": "@davis7dotsh/river-core",
+	"version": "0.1.0",
+	"description": "core library for river",
+	"keywords": [
+		"river",
+		"streaming",
+		"ai"
+	],
+	"publishConfig": {
+		"access": "public"
+	},
+	"author": "Ben Davis (https://davis7.sh)",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/bmdavis419/river",
+		"directory": "packages/core"
+	},
+	"type": "module",
+	"main": "./dist/index.mjs",
+	"types": "./dist/index.d.mts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.mts",
+			"import": "./dist/index.mjs"
+		}
+	},
+	"files": [
+		"dist"
+	],
+	"scripts": {
+		"dev": "tsdown --watch ./src",
+		"build": "tsdown",
+		"publish": "npm publish",
+		"prepack": "bun run build",
+		"format": "prettier --write .",
+		"lint": "prettier --check ."
+	},
+	"devDependencies": {
+		"@davis7dotsh/river-ts-config": "*",
+		"@types/bun": "latest",
+		"tsdown": "^0.16.0",
+		"typescript": "^5.9.3"
+	},
+	"peerDependencies": {
+		"typescript": "^5",
+		"neverthrow": "^8.2.0",
+		"zod": "^4.1.12"
+	}
+}

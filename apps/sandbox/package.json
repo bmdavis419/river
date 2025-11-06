@@ -1,0 +1,42 @@
+{
+	"name": "@davis7dotsh/river-sandbox",
+	"private": true,
+	"version": "0.0.1",
+	"type": "module",
+	"scripts": {
+		"dev": " bunx --bun vite dev --port 5173",
+		"build": "bunx --bun vite build",
+		"preview": "bunx --bun vite preview",
+		"start": "bun run ./build",
+		"prepare": "svelte-kit sync || echo ''",
+		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+		"format": "prettier --write .",
+		"lint": "prettier --check ."
+	},
+	"dependencies": {
+		"@davis7dotsh/river-adapter-sveltekit": "*",
+		"@davis7dotsh/river-core": "*",
+		"@davis7dotsh/river-provider-redis": "*",
+		"ioredis": "^5.8.2",
+		"neverthrow": "^8.2.0",
+		"runed": "^0.35.1",
+		"zod": "^4.1.12"
+	},
+	"devDependencies": {
+		"@sveltejs/kit": "^2.47.1",
+		"@sveltejs/vite-plugin-svelte": "^6.2.1",
+		"@tailwindcss/typography": "^0.5.19",
+		"@tailwindcss/vite": "^4.1.14",
+		"@types/bun": "^1.3.1",
+		"prettier": "^3.6.2",
+		"prettier-plugin-svelte": "^3.4.0",
+		"prettier-plugin-tailwindcss": "^0.7.1",
+		"svelte": "^5.41.0",
+		"svelte-adapter-bun": "^1.0.1",
+		"svelte-check": "^4.3.3",
+		"tailwindcss": "^4.1.14",
+		"typescript": "^5.9.3",
+		"vite": "^7.1.10"
+	}
+}

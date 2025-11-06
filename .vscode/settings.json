@@ -1,10 +1,12 @@
 {
-	"window.titleBarStyle": "custom",
+	"typescript.tsdk": "node_modules/typescript/lib",
+	"editor.formatOnSave": true,
+	"editor.defaultFormatter": "esbenp.prettier-vscode",
+
 	"workbench.colorCustomizations": {
-		"titleBar.activeBackground": "#001122",
+		"titleBar.activeBackground": "#00337a",
 		"titleBar.activeForeground": "#ffffff",
-		"titleBar.inactiveBackground": "#001122",
-		"titleBar.inactiveForeground": "#cccccc"
-	},
-	"typescript.tsdk": "node_modules/typescript/lib"
+		"titleBar.inactiveBackground": "#00337a",
+		"titleBar.inactiveForeground": "#ffffff"
+	}
 }
