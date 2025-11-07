@@ -1,7 +1,7 @@
 export type {
-	ClientSideCaller,
-	ClientSideCallerOptions,
 	DecoratedRiverRouter,
+	ClientSideCaller,
+	ClientSideAsyncIterable,
 	InferRiverStreamChunkType,
 	InferRiverStreamInputType,
 	RiverRouter,
@@ -19,6 +19,8 @@ export { encodeRiverResumptionToken, decodeRiverResumptionToken } from './resume
 export { createRiverRouter } from './router';
 
 export { createServerSideCaller } from './serverCallers';
+
+export { createClientSideCaller } from './clientCallers';
 
 export { createRiverStream } from './stream';
 

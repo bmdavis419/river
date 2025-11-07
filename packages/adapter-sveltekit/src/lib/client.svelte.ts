@@ -1,244 +1,88 @@
-import { ResultAsync } from 'neverthrow';
-import { RiverError } from '@davis7dotsh/river-core';
+import { createClientSideCaller, RiverError } from '@davis7dotsh/river-core';
 import type {
+	ClientSideAsyncIterable,
 	ClientSideCaller,
-	ClientSideCallerOptions,
 	InferRiverStreamChunkType,
 	InferRiverStreamInputType,
-	RiverRouter,
-	RiverSpecialChunk
+	RiverRouter
 } from '@davis7dotsh/river-core';
-import type { SvelteKitRiverClient } from './types.js';
+import type {
+	SvelteKitClientSideCaller,
+	SvelteKitClientSideCallerOptions,
+	SvelteKitRiverClient
+} from './types.js';
 
 class SvelteKitRiverClientCaller<InputType, ChunkType>
-	implements ClientSideCaller<InputType, ChunkType>
+	implements SvelteKitClientSideCaller<InputType, ChunkType>
 {
-	status = $state<'not_started' | 'running' | 'aborted' | 'error' | 'finished'>('not_started');
-	endpoint: string;
-	routerStreamKey: string;
-	lifeCycleCallbacks: ClientSideCallerOptions<ChunkType>;
-	currentAbortController: AbortController | null = null;
+	private endpoint: string;
+	private lifeCycleCallbacks: SvelteKitClientSideCallerOptions<ChunkType>;
+	private currentAbortController: AbortController | null = null;
+	private caller: ClientSideCaller<any>[number];
 
-	private handleFinish = async (
-		args:
-			| {
-					status: 'finished';
-					data: {
-						totalChunks: number;
-						totalTimeMs: number;
-					};
-			  }
-			| {
-					status: 'error';
-					error: RiverError;
-			  }
-			| {
-					status: 'aborted';
-			  }
-	) => {
-		switch (args.status) {
-			case 'finished':
-				this.status = 'finished';
-				await this.lifeCycleCallbacks.onEnd?.(args.data);
-				break;
-			case 'error':
-				this.status = 'error';
-				await this.lifeCycleCallbacks.onError?.(args.error);
-				break;
-			case 'aborted':
-				this.status = 'aborted';
-				await this.lifeCycleCallbacks.onAbort?.();
-				break;
-		}
-	};
+	private internalConsumeStream = async (stream: ClientSideAsyncIterable<unknown>) => {
+		let idx = 0;
 
-	private internalConsumeStream = async (
-		reader: ReadableStreamDefaultReader<Uint8Array<ArrayBuffer>>,
-		abortController: AbortController
-	) => {
-		const decoder = new TextDecoder();
-
-		let done = false;
-		let buffer = '';
-
-		let totalChunks = 0;
-
-		while (!done) {
-			const readResult = await ResultAsync.fromPromise(reader.read(), (error) => {
-				return new RiverError('Failed to read stream', error);
-			});
-
-			if (readResult.isErr()) {
-				if (abortController.signal.aborted) {
-					await this.handleFinish({ status: 'aborted' });
-					done = true;
-					continue;
-				}
-				await this.handleFinish({ status: 'error', error: readResult.error });
-				done = true;
-				continue;
-			}
-
-			const { value, done: streamDone } = readResult.value;
-			done = streamDone;
-
-			if (!value) continue;
-
-			const decoded = decoder.decode(value, { stream: !done });
-			buffer += decoded;
-
-			const messages = buffer.split('\n\n');
-			buffer = messages.pop() || '';
-
-			for (const message of messages) {
-				if (!message.trim().startsWith('data: ')) continue;
-
-				const rawData = message.replace('data: ', '').trim();
-
-				if (rawData.includes('RIVER_SPECIAL_TYPE_KEY')) {
-					const parsed = JSON.parse(rawData) as RiverSpecialChunk;
-					if (parsed.RIVER_SPECIAL_TYPE_KEY === 'stream_start') {
-						await this.lifeCycleCallbacks.onStreamInfo?.({
-							streamRunId: parsed.streamRunId,
-							encodedResumptionToken: parsed.encodedResumptionToken
-						});
-					} else if (parsed.RIVER_SPECIAL_TYPE_KEY === 'stream_error') {
-						let riverError: RiverError;
-						if (parsed.error) {
-							try {
-								riverError = RiverError.fromJSON(parsed.error);
-							} catch {
-								riverError = new RiverError('Stream error');
-							}
-						} else {
-							riverError = new RiverError('Stream error');
-						}
-						await this.handleFinish({ status: 'error', error: riverError });
-						done = true;
-						break;
-					} else if (parsed.RIVER_SPECIAL_TYPE_KEY === 'stream_end') {
-						await this.handleFinish({
-							status: 'finished',
-							data: {
-								totalChunks: parsed.totalChunks,
-								totalTimeMs: parsed.totalTimeMs
-							}
-						});
-						done = true;
-						break;
+		for await (const streamItem of stream) {
+			switch (streamItem.type) {
+				case 'chunk':
+					await this.lifeCycleCallbacks.onChunk?.(streamItem.chunk as ChunkType, idx);
+					idx++;
+					break;
+				case 'special':
+					const { special } = streamItem;
+					switch (special.RIVER_SPECIAL_TYPE_KEY) {
+						case 'stream_start':
+							await this.lifeCycleCallbacks.onInfo?.({
+								streamRunId: special.streamRunId,
+								encodedResumptionToken: special.encodedResumptionToken
+							});
+							break;
+						case 'stream_error':
+							await this.lifeCycleCallbacks.onError?.(special.error);
+							break;
+						case 'stream_fatal_error':
+							await this.lifeCycleCallbacks.onFatalError?.(special.error);
+							break;
+						case 'stream_end':
+							await this.lifeCycleCallbacks.onSuccess?.({
+								totalChunks: special.totalChunks,
+								totalTimeMs: special.totalTimeMs
+							});
+							break;
 					}
-					continue;
-				}
-
-				let parsed: unknown;
-				try {
-					parsed = JSON.parse(rawData);
-				} catch {
-					parsed = rawData;
-				}
-
-				await this.lifeCycleCallbacks.onChunk?.(parsed as any, totalChunks);
-				totalChunks += 1;
+					break;
+				case 'aborted':
+					await this.lifeCycleCallbacks.onAbort?.();
+					break;
 			}
-		}
-
-		if (this.status === 'running') {
-			await this.handleFinish({ status: 'finished', data: { totalChunks, totalTimeMs: 0 } });
 		}
 	};
 
 	private internalResumeStream = async (resumeKey: string, abortController: AbortController) => {
 		await this.lifeCycleCallbacks.onStart?.();
 
-		this.status = 'running';
+		const resumeResult = await this.caller.resume({ resumeKey, abortController });
 
-		const response = await ResultAsync.fromPromise(
-			fetch(`${this.endpoint}?resumeKey=${encodeURIComponent(resumeKey)}`, {
-				method: 'GET',
-				signal: abortController.signal
-			}),
-
-			(error) => {
-				return new RiverError('Failed to resume stream', error);
-			}
-		);
-
-		if (response.isErr()) {
-			return await this.handleFinish({ status: 'error', error: response.error });
+		if (resumeResult.isErr()) {
+			await this.lifeCycleCallbacks.onFatalError?.(resumeResult.error);
+			return;
 		}
 
-		if (!response.value.ok) {
-			let riverError: RiverError;
-			try {
-				const errorData = await response.value.json();
-				riverError = RiverError.fromJSON(errorData);
-			} catch {
-				riverError = new RiverError('Failed to resume stream', response.value);
-			}
-			return await this.handleFinish({
-				status: 'error',
-				error: riverError
-			});
-		}
-
-		const reader = response.value.body?.getReader();
-		if (!reader) {
-			return await this.handleFinish({
-				status: 'error',
-				error: new RiverError('Failed to get reader')
-			});
-		}
-
-		await this.internalConsumeStream(reader, abortController);
+		await this.internalConsumeStream(resumeResult.value);
 	};
 
 	private internalFireAgent = async (input: InputType, abortController: AbortController) => {
 		await this.lifeCycleCallbacks.onStart?.();
 
-		this.status = 'running';
+		const startResult = await this.caller.start({ input, abortController });
 
-		const response = await ResultAsync.fromPromise(
-			fetch(this.endpoint, {
-				method: 'POST',
-				body: JSON.stringify({
-					routerStreamKey: this.routerStreamKey,
-					input
-				}),
-				signal: abortController.signal
-			}),
-
-			(error) => {
-				return new RiverError('Failed to call agent', error);
-			}
-		);
-
-		if (response.isErr()) {
-			return await this.handleFinish({ status: 'error', error: response.error });
+		if (startResult.isErr()) {
+			await this.lifeCycleCallbacks.onFatalError?.(startResult.error);
+			return;
 		}
 
-		if (!response.value.ok) {
-			let riverError: RiverError;
-			try {
-				const errorData = await response.value.json();
-				riverError = RiverError.fromJSON(errorData);
-			} catch {
-				riverError = new RiverError('Failed to call agent', response.value);
-			}
-			return await this.handleFinish({
-				status: 'error',
-				error: riverError
-			});
-		}
-
-		const reader = response.value.body?.getReader();
-		if (!reader) {
-			return await this.handleFinish({
-				status: 'error',
-				error: new RiverError('Failed to get reader')
-			});
-		}
-
-		await this.internalConsumeStream(reader, abortController);
+		await this.internalConsumeStream(startResult.value);
 	};
 
 	start = (input: InputType) => {
@@ -260,37 +104,45 @@ class SvelteKitRiverClientCaller<InputType, ChunkType>
 	};
 
 	constructor(
-		options: ClientSideCallerOptions<ChunkType> & { routerStreamKey: string; endpoint: string }
+		options: SvelteKitClientSideCallerOptions<ChunkType>,
+		args: {
+			caller: ClientSideCaller<any>[number];
+			endpoint: string;
+		}
 	) {
-		this.lifeCycleCallbacks = {
-			onEnd: options.onEnd,
-			onError: options.onError,
-			onChunk: options.onChunk,
-			onStart: options.onStart,
-			onAbort: options.onAbort,
-			onStreamInfo: options.onStreamInfo
-		};
-		this.endpoint = options.endpoint;
-		this.routerStreamKey = options.routerStreamKey;
+		this.lifeCycleCallbacks = options;
+		this.endpoint = args.endpoint;
+		this.caller = args.caller;
 	}
 }
 
 export const createRiverClient = <T extends RiverRouter>(
 	endpoint: string
 ): SvelteKitRiverClient<T> => {
+	const clientSideCaller = createClientSideCaller<T>(endpoint);
 	return new Proxy({} as SvelteKitRiverClient<T>, {
 		get<K extends keyof T>(
 			_target: SvelteKitRiverClient<T>,
 			routerStreamKey: K & (string | symbol)
 		) {
-			return (options: ClientSideCallerOptions<InferRiverStreamChunkType<T[K]>>) => {
+			return (options: SvelteKitClientSideCallerOptions<InferRiverStreamChunkType<T[K]>>) => {
+				const caller = clientSideCaller[routerStreamKey] as any;
+				if (!caller) {
+					throw new RiverError(
+						'Trying to access a non-existent stream on the client',
+						undefined,
+						'unknown',
+						{
+							routerStreamKey
+						}
+					);
+				}
 				return new SvelteKitRiverClientCaller<
 					InferRiverStreamInputType<T[K]>,
 					InferRiverStreamChunkType<T[K]>
-				>({
-					...options,
-					routerStreamKey: routerStreamKey as string,
-					endpoint
+				>(options, {
+					endpoint,
+					caller
 				});
 			};
 		}

@@ -22,16 +22,19 @@
 		onStart: () => {
 			allChunks = [];
 		},
-		onEnd: (data) => {
+		onSuccess: (data) => {
 			console.log('Finished first stream', data.totalChunks, data.totalTimeMs);
 		},
 		onError: (error) => {
+			console.warn(error);
+		},
+		onFatalError: (error) => {
 			console.error(error);
 		},
 		onAbort: () => {
 			console.log('Aborted stream');
 		},
-		onStreamInfo: ({ encodedResumptionToken }) => {
+		onInfo: ({ encodedResumptionToken }) => {
 			if (encodedResumptionToken) {
 				goto(`?resumeKey=${encodeURIComponent(encodedResumptionToken)}`);
 			}

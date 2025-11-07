@@ -1,18 +1,51 @@
 import type {
-	ClientSideCaller,
-	ClientSideCallerOptions,
 	DecoratedRiverRouter,
 	InferRiverStreamChunkType,
 	InferRiverStreamInputType,
-	RiverRouter
+	RiverRouter,
+	RiverError
 } from '@davis7dotsh/river-core';
 import type { RequestEvent } from '@sveltejs/kit';
 
 // river sveltekit client types
 
+type OnSuccessCallback = (data: {
+	totalChunks: number;
+	totalTimeMs: number;
+}) => void | Promise<void>;
+type OnErrorCallback = (error: RiverError) => void | Promise<void>;
+type OnFatalErrorCallback = (error: RiverError) => void | Promise<void>;
+type OnChunkCallback<Chunk> = (chunk: Chunk, index: number) => void | Promise<void>;
+type OnStartCallback = () => void | Promise<void>;
+type OnInfoCallback = (data: {
+	streamRunId: string;
+	encodedResumptionToken?: string;
+}) => void | Promise<void>;
+type OnAbortCallback = () => void | Promise<void>;
+
+export type SvelteKitClientSideCaller<Input, ChunkType> = {
+	_phantom?: {
+		ChunkType: ChunkType;
+		InputType: Input;
+	};
+	start: (input: Input) => void;
+	resume: (resumeKey: string) => void;
+	abort: () => void;
+};
+
+export type SvelteKitClientSideCallerOptions<ChunkType> = {
+	onSuccess?: OnSuccessCallback;
+	onError?: OnErrorCallback;
+	onFatalError?: OnFatalErrorCallback;
+	onChunk?: OnChunkCallback<ChunkType>;
+	onStart?: OnStartCallback;
+	onAbort?: OnAbortCallback;
+	onInfo?: OnInfoCallback;
+};
+
 export type SvelteKitMakeClientSideCaller<InputType, ChunkType> = (
-	options: ClientSideCallerOptions<ChunkType>
-) => ClientSideCaller<InputType, ChunkType>;
+	options: SvelteKitClientSideCallerOptions<ChunkType>
+) => SvelteKitClientSideCaller<InputType, ChunkType>;
 
 export type SvelteKitRiverClient<T extends RiverRouter> = {
 	[K in keyof T]: SvelteKitMakeClientSideCaller<

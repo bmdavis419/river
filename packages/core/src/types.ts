@@ -35,14 +35,19 @@ export type RiverSpecialEndChunk = {
 
 export type RiverSpecialErrorChunk = {
 	RIVER_SPECIAL_TYPE_KEY: 'stream_error';
-	streamRunId: string;
+	error: RiverError;
+};
+
+export type RiverSpecialFatalErrorChunk = {
+	RIVER_SPECIAL_TYPE_KEY: 'stream_fatal_error';
 	error: RiverError;
 };
 
 export type RiverSpecialChunk =
 	| RiverSpecialStartChunk
 	| RiverSpecialEndChunk
-	| RiverSpecialErrorChunk;
+	| RiverSpecialErrorChunk
+	| RiverSpecialFatalErrorChunk;
 
 // river stream providers
 
@@ -215,37 +220,35 @@ export type ServerSideCaller<T extends RiverRouter> = {
 	>;
 };
 
-// river client
+// client side callers
 
-type OnEndCallback = (data: { totalChunks: number; totalTimeMs: number }) => void | Promise<void>;
-type OnErrorCallback = (error: RiverError) => void | Promise<void>;
-type OnChunkCallback<Chunk> = (chunk: Chunk, index: number) => void | Promise<void>;
-type OnStartCallback = () => void | Promise<void>;
-type OnStreamInfoCallback = (data: {
-	streamRunId: string;
-	encodedResumptionToken?: string;
-}) => void | Promise<void>;
-type OnAbortCallback = () => void | Promise<void>;
-
-export type ClientSideCaller<Input, ChunkType> = {
-	_phantom?: {
-		ChunkType: ChunkType;
-		InputType: Input;
-	};
-	status: 'not_started' | 'running' | 'aborted' | 'error' | 'finished';
-	start: (input: Input) => void;
-	resume: (resumeKey: string) => void;
-	abort: () => void;
+export type ClientSideCaller<T extends RiverRouter> = {
+	[K in keyof T]: MakeClientSideCaller<
+		InferRiverStreamInputType<T[K]>,
+		InferRiverStreamChunkType<T[K]>
+	>;
 };
 
-export type ClientSideCallerOptions<ChunkType> = {
-	onEnd?: OnEndCallback;
-	onError?: OnErrorCallback;
-	onChunk?: OnChunkCallback<ChunkType>;
-	onStart?: OnStartCallback;
-	onAbort?: OnAbortCallback;
-	onStreamInfo?: OnStreamInfoCallback;
+export type MakeClientSideCaller<InputType, ChunkType> = {
+	start: ClientSideStartCaller<InputType, ChunkType>;
+	resume: ClientSideResumeCaller<ChunkType>;
 };
+
+export type ClientSideAsyncIterable<ChunkType> = AsyncIterable<
+	| { type: 'chunk'; chunk: ChunkType }
+	| { type: 'special'; special: RiverSpecialChunk }
+	| { type: 'aborted' }
+>;
+
+export type ClientSideStartCaller<InputType, ChunkType> = (args: {
+	input: InputType;
+	abortController?: AbortController;
+}) => Promise<Result<ClientSideAsyncIterable<ChunkType>, RiverError>>;
+
+export type ClientSideResumeCaller<ChunkType> = (args: {
+	resumeKey: string;
+	abortController?: AbortController;
+}) => Promise<Result<ClientSideAsyncIterable<ChunkType>, RiverError>>;
 
 // river helper types
 
