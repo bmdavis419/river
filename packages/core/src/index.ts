@@ -1,7 +1,7 @@
 export type {
 	DecoratedRiverRouter,
 	ClientSideCaller,
-	ClientSideAsyncIterable,
+	CallerAsyncIterable,
 	InferRiverStreamChunkType,
 	InferRiverStreamInputType,
 	RiverRouter,

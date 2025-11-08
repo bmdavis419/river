@@ -1,8 +1,7 @@
 import { err, ok, Result, ResultAsync } from 'neverthrow';
 import type {
-	ClientSideAsyncIterable,
+	CallerAsyncIterable,
 	ClientSideCaller,
-	ClientSideStartCaller,
 	InferRiverStreamChunkType,
 	InferRiverStreamInputType,
 	MakeClientSideCaller,
@@ -14,7 +13,7 @@ import { RiverError } from './errors';
 async function* internalConsumeToAsyncIterable(
 	reader: ReadableStreamDefaultReader<any>,
 	abortController?: AbortController
-): ClientSideAsyncIterable<any> {
+): CallerAsyncIterable<any> {
 	const decoder = new TextDecoder();
 
 	let buffer = '';

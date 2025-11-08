@@ -1,16 +1,24 @@
 import { err, ok, Result, ResultAsync } from 'neverthrow';
 import { RiverError } from './errors';
 import type {
+	CallerAsyncIterable,
+	CallerStreamItems,
 	RiverProvider,
 	RiverSpecialChunk,
 	RiverSpecialEndChunk,
 	RiverSpecialErrorChunk,
+	RiverSpecialFatalErrorChunk,
 	RiverSpecialStartChunk
 } from './types';
 import { encodeRiverResumptionToken } from './resumeToken';
 import { createAsyncIterableStream } from './helpers';
 
 const DEFAULT_PROVIDER_ID = 'default';
+
+// TODO: really figure out the request lifecycle of the stream here
+// make sure that the abort controller aborting stops the stream
+// make sure that the stream is closed when it errors, get's aborted, or completes
+// make sure that chunks are not sent after the stream is aborted or closed
 
 export const defaultRiverProvider = (): RiverProvider<any, false> => ({
 	providerId: DEFAULT_PROVIDER_ID,
@@ -24,48 +32,24 @@ export const defaultRiverProvider = (): RiverProvider<any, false> => ({
 			)
 		);
 	},
-	serverSideResumeStream: async () => {
-		return err(
-			new RiverError(
-				'Default river provider does not support resuming streams',
-				undefined,
-				'custom'
-			)
-		);
-	},
-	serverSideRunAndConsume: async ({ input, adapterRequest, routerStreamKey, runnerFn }) => {
+	startStream: async ({ input, adapterRequest, routerStreamKey, abortController, runnerFn }) => {
 		let startTime = performance.now();
 
 		const streamRunId = crypto.randomUUID();
 		// in other providers, this should be passed in as a parameter at the top level of the provider creation function
 		const streamStorageId = 'default_storage_id';
 
-		const stream = new ReadableStream<
-			| {
-					type: 'chunk';
-					chunk: unknown;
-			  }
-			| {
-					type: 'special';
-					special: RiverSpecialChunk;
-			  }
-		>({
+		const stream = new ReadableStream<CallerStreamItems<any>>({
 			async start(controller) {
 				let totalChunks = 0;
 
-				let wasClosed = false;
-
-				const safeSendChunk = (
-					data: { type: 'chunk'; chunk: unknown } | { type: 'special'; special: RiverSpecialChunk }
-				) => {
+				const safeSendChunk = async (data: CallerStreamItems<any>) => {
+					if (abortController.signal.aborted) {
+						return err(new RiverError('Stream was aborted', undefined, 'stream'));
+					}
 					return Result.fromThrowable(
 						() => {
-							if (data.type === 'special') {
-								controller.enqueue({ type: 'special', special: data.special });
-							} else {
-								totalChunks++;
-								controller.enqueue({ type: 'chunk', chunk: data.chunk });
-							}
+							controller.enqueue(data);
 							return null;
 						},
 						(error) => {
@@ -74,45 +58,51 @@ export const defaultRiverProvider = (): RiverProvider<any, false> => ({
 					)();
 				};
 
-				const encodeResumptionTokenResult = encodeRiverResumptionToken({
-					providerId: DEFAULT_PROVIDER_ID,
-					routerStreamKey,
-					streamStorageId,
-					streamRunId
-				});
-
-				if (encodeResumptionTokenResult.isErr()) {
-					return err(encodeResumptionTokenResult.error);
-				}
-
 				const startChunk: RiverSpecialStartChunk = {
 					RIVER_SPECIAL_TYPE_KEY: 'stream_start',
-					streamRunId,
-					encodedResumptionToken: encodeResumptionTokenResult.value
+					streamRunId
 				};
 
-				const startSendResult = safeSendChunk({ type: 'special', special: startChunk });
+				const startSendResult = await safeSendChunk({ type: 'special', special: startChunk });
 
 				if (startSendResult.isErr()) {
 					console.error('start chunk failed to send', startSendResult.error);
+					controller.error(startSendResult.error);
 					return;
 				}
 
 				const appendChunk = async (chunk: unknown) => {
-					return safeSendChunk({ type: 'chunk', chunk });
+					return await safeSendChunk({ type: 'chunk', chunk });
 				};
 
 				const appendError = async (error: RiverError) => {
 					const errorChunk: RiverSpecialErrorChunk = {
 						RIVER_SPECIAL_TYPE_KEY: 'stream_error',
-						streamRunId,
 						error
 					};
 
-					const errorSendResult = safeSendChunk({ type: 'special', special: errorChunk });
+					const errorSendResult = await safeSendChunk({ type: 'special', special: errorChunk });
 
 					if (errorSendResult.isErr()) {
 						return errorSendResult;
+					}
+
+					return ok(null);
+				};
+
+				const appendFatalError = async (error: RiverError) => {
+					const fatalErrorChunk: RiverSpecialFatalErrorChunk = {
+						RIVER_SPECIAL_TYPE_KEY: 'stream_fatal_error',
+						error
+					};
+
+					const fatalErrorSendResult = await safeSendChunk({
+						type: 'special',
+						special: fatalErrorChunk
+					});
+
+					if (fatalErrorSendResult.isErr()) {
+						return fatalErrorSendResult;
 					}
 
 					return ok(null);
@@ -125,144 +115,7 @@ export const defaultRiverProvider = (): RiverProvider<any, false> => ({
 						totalTimeMs: performance.now() - startTime
 					};
 
-					const closeSendResult = safeSendChunk({ type: 'special', special: endChunk });
-
-					if (closeSendResult.isErr()) {
-						return closeSendResult;
-					}
-
-					if (!wasClosed) {
-						wasClosed = true;
-						controller.close();
-					}
-
-					return ok(null);
-				};
-
-				const runnerResult = await ResultAsync.fromPromise(
-					runnerFn({
-						input,
-						streamRunId,
-						streamStorageId,
-						stream: { appendChunk, appendError, close },
-						abortSignal: new AbortController().signal,
-						adapterRequest
-					}),
-					(error) => new RiverError('Failed to run runner function', error, 'stream')
-				);
-
-				if (runnerResult.isErr()) {
-					console.error(runnerResult.error);
-					if (!wasClosed) {
-						wasClosed = true;
-						controller.close();
-					}
-					return appendError(runnerResult.error);
-				}
-			},
-			async cancel(reason) {}
-		});
-
-		return ok(createAsyncIterableStream(stream));
-	},
-	serverSideRunInBackground: async () => {
-		return err(
-			new RiverError(
-				'Default river provider does not support running in the background. You need to use the redis provider instead.',
-				undefined,
-				'custom'
-			)
-		);
-	},
-	initStream: async ({ abortController, adapterRequest, routerStreamKey, input, runnerFn }) => {
-		let startTime = performance.now();
-
-		const streamRunId = crypto.randomUUID();
-		// in other providers, this should be passed in as a parameter at the top level of the provider creation function
-		const streamStorageId = 'default_storage_id';
-
-		const stream = new ReadableStream<Uint8Array>({
-			async start(controller) {
-				const encoder = new TextEncoder();
-
-				abortController.signal.addEventListener('abort', () => {
-					controller.close();
-				});
-
-				let totalChunks = 0;
-
-				const safeSendChunk = (chunk: unknown) => {
-					return Result.fromThrowable(
-						() => {
-							if (!abortController.signal.aborted) {
-								const sseChunk = `data: ${JSON.stringify(chunk)}\n\n`;
-								controller.enqueue(encoder.encode(sseChunk));
-								totalChunks++;
-								return null;
-							} else {
-								throw new Error('tried to send chunk after stream was canceled');
-							}
-						},
-						(error) => {
-							return new RiverError('Failed to send chunk', error, 'stream');
-						}
-					)();
-				};
-
-				const encodeResumptionTokenResult = encodeRiverResumptionToken({
-					providerId: DEFAULT_PROVIDER_ID,
-					routerStreamKey,
-					streamStorageId,
-					streamRunId
-				});
-
-				if (encodeResumptionTokenResult.isErr()) {
-					return err(encodeResumptionTokenResult.error);
-				}
-
-				const startChunk: RiverSpecialStartChunk = {
-					RIVER_SPECIAL_TYPE_KEY: 'stream_start',
-					streamRunId,
-					encodedResumptionToken: encodeResumptionTokenResult.value
-				};
-
-				const startSendResult = safeSendChunk(startChunk);
-
-				if (startSendResult.isErr()) {
-					console.error('start chunk failed to send', startSendResult.error);
-					return;
-				}
-
-				const appendChunk = async (chunk: unknown) => {
-					return safeSendChunk(chunk);
-				};
-
-				const appendError = async (error: RiverError) => {
-					const errorChunk: RiverSpecialErrorChunk = {
-						RIVER_SPECIAL_TYPE_KEY: 'stream_error',
-						streamRunId,
-						error
-					};
-
-					const errorSendResult = safeSendChunk(errorChunk);
-
-					if (errorSendResult.isErr()) {
-						return errorSendResult;
-					}
-
-					abortController.abort();
-
-					return ok(null);
-				};
-
-				const close = async () => {
-					const endChunk: RiverSpecialEndChunk = {
-						RIVER_SPECIAL_TYPE_KEY: 'stream_end',
-						totalChunks,
-						totalTimeMs: performance.now() - startTime
-					};
-
-					const closeSendResult = safeSendChunk(endChunk);
+					const closeSendResult = await safeSendChunk({ type: 'special', special: endChunk });
 
 					if (closeSendResult.isErr()) {
 						return closeSendResult;
@@ -280,23 +133,25 @@ export const defaultRiverProvider = (): RiverProvider<any, false> => ({
 						input,
 						streamRunId,
 						streamStorageId,
-						stream: { appendChunk, appendError, close },
-						abortSignal: abortController.signal,
+						stream: { appendChunk, appendError, appendFatalError, close },
+						abortSignal: new AbortController().signal,
 						adapterRequest
 					}),
 					(error) => new RiverError('Failed to run runner function', error, 'stream')
 				);
 
 				if (runnerResult.isErr()) {
-					console.error(runnerResult.error);
-					return appendError(runnerResult.error);
+					await appendFatalError(runnerResult.error);
+					if (!abortController.signal.aborted) {
+						controller.error(runnerResult.error);
+					}
+
+					return runnerResult.error;
 				}
 			},
-			async cancel(reason) {
-				abortController.abort(reason);
-			}
+			async cancel(reason) {}
 		});
 
-		return ok(stream);
+		return ok(createAsyncIterableStream(stream));
 	}
 });

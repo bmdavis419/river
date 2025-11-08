@@ -1,6 +1,6 @@
 import { createClientSideCaller, RiverError } from '@davis7dotsh/river-core';
 import type {
-	ClientSideAsyncIterable,
+	CallerAsyncIterable,
 	ClientSideCaller,
 	InferRiverStreamChunkType,
 	InferRiverStreamInputType,
@@ -20,7 +20,7 @@ class SvelteKitRiverClientCaller<InputType, ChunkType>
 	private currentAbortController: AbortController | null = null;
 	private caller: ClientSideCaller<any>[number];
 
-	private internalConsumeStream = async (stream: ClientSideAsyncIterable<unknown>) => {
+	private internalConsumeStream = async (stream: CallerAsyncIterable<unknown>) => {
 		let idx = 0;
 
 		for await (const streamItem of stream) {
