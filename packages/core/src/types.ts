@@ -53,7 +53,7 @@ export type RiverSpecialChunk =
 
 type RiverStreamActiveMethods<ChunkType> = {
 	appendChunk: (chunk: ChunkType) => Promise<Result<null, RiverError>>;
-	appendFatalError: (error: RiverError) => Promise<Result<null, RiverError>>;
+	sendFatalErrorAndClose: (error: RiverError) => Promise<Result<null, RiverError>>;
 	appendError: (error: RiverError) => Promise<Result<null, RiverError>>;
 	close: () => Promise<Result<null, RiverError>>;
 };
@@ -152,47 +152,19 @@ export type CallerAsyncIterable<ChunkType> = AsyncIterable<CallerStreamItems<Chu
 type AsyncIterableStream<T> = ReadableStream<T> & AsyncIterable<T>;
 
 type ServerSideStartCaller<InputType, ChunkType, AdapterRequestType> = (args: {
+	abortController: AbortController;
 	input: InputType;
 	adapterRequest: AdapterRequestType;
-}) => Promise<Result<CallerAsyncIterable<ChunkType>, RiverError>>;
+}) => Promise<Result<AsyncIterableStream<CallerStreamItems<ChunkType>>, RiverError>>;
 
 type ServerSideResumeCaller<ChunkType> = (args: {
+	abortController: AbortController;
 	resumeKey: string;
-}) => Promise<Result<CallerAsyncIterable<ChunkType>, RiverError>>;
+}) => Promise<Result<AsyncIterableStream<CallerStreamItems<ChunkType>>, RiverError>>;
 
 export type MakeServerSideCaller<InputType, ChunkType, AdapterRequestType> = {
-	startStreamInBackground: (args: {
-		input: InputType;
-		adapterRequest: AdapterRequestType;
-	}) => Promise<Result<RiverSpecialStartChunk, RiverError>>;
-	resumeStream: (args: {
-		resumeKey: string;
-	}) => Promise<
-		Result<
-			AsyncIterableStream<
-				{ type: 'chunk'; chunk: ChunkType } | { type: 'special'; special: RiverSpecialChunk }
-			>,
-			RiverError
-		>
-	>;
-	startStreamAndConsume: (args: {
-		input: InputType;
-		adapterRequest: AdapterRequestType;
-	}) => Promise<
-		Result<
-			AsyncIterableStream<
-				| {
-						type: 'chunk';
-						chunk: ChunkType;
-				  }
-				| {
-						type: 'special';
-						special: RiverSpecialChunk;
-				  }
-			>,
-			RiverError
-		>
-	>;
+	start: ServerSideStartCaller<InputType, ChunkType, AdapterRequestType>;
+	resume: ServerSideResumeCaller<ChunkType>;
 };
 
 export type ServerSideCaller<T extends RiverRouter> = {

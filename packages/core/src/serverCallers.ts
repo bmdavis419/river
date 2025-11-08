@@ -21,7 +21,7 @@ export const createServerSideCaller = <T extends RiverRouter>(router: T): Server
 			InferRiverStreamAdapterRequestType<T[K]>
 		> {
 			return {
-				startStreamInBackground: async ({ input, adapterRequest }: any) => {
+				start: async ({ abortController, input, adapterRequest }) => {
 					const stream = router[routerStreamKey];
 
 					if (!stream) {
@@ -32,14 +32,15 @@ export const createServerSideCaller = <T extends RiverRouter>(router: T): Server
 						);
 					}
 
-					return await stream.provider.serverSideRunInBackground({
+					return await stream.provider.startStream({
+						abortController,
 						input,
 						adapterRequest,
 						routerStreamKey: routerStreamKey as string,
 						runnerFn: stream.runner
 					});
 				},
-				resumeStream: async ({ resumeKey }: any) => {
+				resume: async ({ abortController, resumeKey }) => {
 					const stream = router[routerStreamKey];
 
 					const decodedResumptionTokenResult = decodeRiverResumptionToken(resumeKey);
@@ -56,26 +57,9 @@ export const createServerSideCaller = <T extends RiverRouter>(router: T): Server
 						);
 					}
 
-					return await stream.provider.serverSideResumeStream({
+					return await stream.provider.resumeStream({
+						abortController,
 						resumptionToken: decodedResumptionTokenResult.value
-					});
-				},
-				startStreamAndConsume: async ({ input, adapterRequest }: any) => {
-					const stream = router[routerStreamKey];
-
-					if (!stream) {
-						return err(
-							new RiverError('Stream not found', undefined, 'internal', {
-								routerStreamKey
-							})
-						);
-					}
-
-					return await stream.provider.serverSideRunAndConsume({
-						input,
-						adapterRequest,
-						routerStreamKey: routerStreamKey as string,
-						runnerFn: stream.runner
 					});
 				}
 			};

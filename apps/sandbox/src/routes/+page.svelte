@@ -14,6 +14,7 @@
 
 	const basicCaller = myRiverClient.basic({
 		onChunk: (chunk) => {
+			console.log('Chunk received', chunk);
 			allChunks.push(chunk);
 		},
 		onStart: () => {

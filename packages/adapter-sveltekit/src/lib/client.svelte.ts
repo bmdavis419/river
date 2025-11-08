@@ -15,7 +15,6 @@ import type {
 class SvelteKitRiverClientCaller<InputType, ChunkType>
 	implements SvelteKitClientSideCaller<InputType, ChunkType>
 {
-	private endpoint: string;
 	private lifeCycleCallbacks: SvelteKitClientSideCallerOptions<ChunkType>;
 	private currentAbortController: AbortController | null = null;
 	private caller: ClientSideCaller<any>[number];
@@ -24,6 +23,7 @@ class SvelteKitRiverClientCaller<InputType, ChunkType>
 		let idx = 0;
 
 		for await (const streamItem of stream) {
+			console.log('Stream item received', streamItem);
 			switch (streamItem.type) {
 				case 'chunk':
 					await this.lifeCycleCallbacks.onChunk?.(streamItem.chunk as ChunkType, idx);
@@ -107,11 +107,9 @@ class SvelteKitRiverClientCaller<InputType, ChunkType>
 		options: SvelteKitClientSideCallerOptions<ChunkType>,
 		args: {
 			caller: ClientSideCaller<any>[number];
-			endpoint: string;
 		}
 	) {
 		this.lifeCycleCallbacks = options;
-		this.endpoint = args.endpoint;
 		this.caller = args.caller;
 	}
 }
@@ -141,7 +139,6 @@ export const createRiverClient = <T extends RiverRouter>(
 					InferRiverStreamInputType<T[K]>,
 					InferRiverStreamChunkType<T[K]>
 				>(options, {
-					endpoint,
 					caller
 				});
 			};

@@ -1,16 +1,13 @@
 import { err, ok, Result, ResultAsync } from 'neverthrow';
 import { RiverError } from './errors';
 import type {
-	CallerAsyncIterable,
 	CallerStreamItems,
 	RiverProvider,
-	RiverSpecialChunk,
 	RiverSpecialEndChunk,
 	RiverSpecialErrorChunk,
 	RiverSpecialFatalErrorChunk,
 	RiverSpecialStartChunk
 } from './types';
-import { encodeRiverResumptionToken } from './resumeToken';
 import { createAsyncIterableStream } from './helpers';
 
 const DEFAULT_PROVIDER_ID = 'default';
@@ -32,19 +29,21 @@ export const defaultRiverProvider = (): RiverProvider<any, false> => ({
 			)
 		);
 	},
-	startStream: async ({ input, adapterRequest, routerStreamKey, abortController, runnerFn }) => {
+	startStream: async ({ input, adapterRequest, abortController, runnerFn }) => {
 		let startTime = performance.now();
 
 		const streamRunId = crypto.randomUUID();
 		// in other providers, this should be passed in as a parameter at the top level of the provider creation function
 		const streamStorageId = 'default_storage_id';
 
+		let wasClosed = false;
+
 		const stream = new ReadableStream<CallerStreamItems<any>>({
 			async start(controller) {
 				let totalChunks = 0;
 
 				const safeSendChunk = async (data: CallerStreamItems<any>) => {
-					if (abortController.signal.aborted) {
+					if (abortController.signal.aborted || wasClosed) {
 						return err(new RiverError('Stream was aborted', undefined, 'stream'));
 					}
 					return Result.fromThrowable(
@@ -72,6 +71,7 @@ export const defaultRiverProvider = (): RiverProvider<any, false> => ({
 				}
 
 				const appendChunk = async (chunk: unknown) => {
+					totalChunks++;
 					return await safeSendChunk({ type: 'chunk', chunk });
 				};
 
@@ -90,7 +90,7 @@ export const defaultRiverProvider = (): RiverProvider<any, false> => ({
 					return ok(null);
 				};
 
-				const appendFatalError = async (error: RiverError) => {
+				const sendFatalErrorAndClose = async (error: RiverError) => {
 					const fatalErrorChunk: RiverSpecialFatalErrorChunk = {
 						RIVER_SPECIAL_TYPE_KEY: 'stream_fatal_error',
 						error
@@ -101,11 +101,12 @@ export const defaultRiverProvider = (): RiverProvider<any, false> => ({
 						special: fatalErrorChunk
 					});
 
-					if (fatalErrorSendResult.isErr()) {
-						return fatalErrorSendResult;
+					if (!wasClosed && !abortController.signal.aborted) {
+						wasClosed = true;
+						controller.close();
 					}
 
-					return ok(null);
+					return fatalErrorSendResult;
 				};
 
 				const close = async () => {
@@ -117,15 +118,12 @@ export const defaultRiverProvider = (): RiverProvider<any, false> => ({
 
 					const closeSendResult = await safeSendChunk({ type: 'special', special: endChunk });
 
-					if (closeSendResult.isErr()) {
-						return closeSendResult;
-					}
-
-					if (!abortController.signal.aborted) {
+					if (!abortController.signal.aborted && !wasClosed) {
+						wasClosed = true;
 						controller.close();
 					}
 
-					return ok(null);
+					return closeSendResult;
 				};
 
 				const runnerResult = await ResultAsync.fromPromise(
@@ -133,23 +131,25 @@ export const defaultRiverProvider = (): RiverProvider<any, false> => ({
 						input,
 						streamRunId,
 						streamStorageId,
-						stream: { appendChunk, appendError, appendFatalError, close },
-						abortSignal: new AbortController().signal,
+						stream: { appendChunk, appendError, sendFatalErrorAndClose, close },
+						abortSignal: abortController.signal,
 						adapterRequest
 					}),
 					(error) => new RiverError('Failed to run runner function', error, 'stream')
 				);
 
 				if (runnerResult.isErr()) {
-					await appendFatalError(runnerResult.error);
-					if (!abortController.signal.aborted) {
-						controller.error(runnerResult.error);
+					await sendFatalErrorAndClose(runnerResult.error);
+				} else {
+					if (!abortController.signal.aborted && !wasClosed) {
+						wasClosed = true;
+						controller.close();
 					}
-
-					return runnerResult.error;
 				}
 			},
-			async cancel(reason) {}
+			async cancel() {
+				wasClosed = true;
+			}
 		});
 
 		return ok(createAsyncIterableStream(stream));

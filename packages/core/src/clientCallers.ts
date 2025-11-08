@@ -1,6 +1,7 @@
 import { err, ok, Result, ResultAsync } from 'neverthrow';
 import type {
 	CallerAsyncIterable,
+	CallerStreamItems,
 	ClientSideCaller,
 	InferRiverStreamChunkType,
 	InferRiverStreamInputType,
@@ -131,10 +132,7 @@ async function* internalConsumeToAsyncIterable(
 				parsedChunk = rawData;
 			}
 
-			yield {
-				type: 'chunk',
-				chunk: parsedChunk
-			};
+			yield parsedChunk as CallerStreamItems<any>;
 			totalChunks += 1;
 		}
 	}

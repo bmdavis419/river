@@ -1,6 +1,7 @@
 import { error } from '@sveltejs/kit';
 import {
 	RiverError,
+	createServerSideCaller,
 	decodeRiverResumptionToken,
 	resumeRiverStreamParamsSchema,
 	startRiverStreamBodySchema
@@ -8,119 +9,102 @@ import {
 import type { SvelteKitRiverEndpointHandler } from './types.js';
 import { ResultAsync } from 'neverthrow';
 
-export const riverEndpointHandler: SvelteKitRiverEndpointHandler = (router) => ({
-	GET: async (event) => {
-		const { searchParams } = event.url;
+export const riverEndpointHandler: SvelteKitRiverEndpointHandler = (router) => {
+	const serverSideCaller = createServerSideCaller(router);
+	return {
+		GET: async (event) => {
+			const { searchParams } = event.url;
 
-		const validatedParamsResult = resumeRiverStreamParamsSchema.safeParse(
-			Object.fromEntries(searchParams)
-		);
+			const validatedParamsResult = resumeRiverStreamParamsSchema.safeParse(
+				Object.fromEntries(searchParams)
+			);
 
-		if (!validatedParamsResult.success) {
-			const riverError = new RiverError('Must send a resume key', undefined, 'internal');
-			return error(400, riverError);
-		}
+			if (!validatedParamsResult.success) {
+				const riverError = new RiverError('Must send a resume key', undefined, 'internal');
+				return error(400, riverError);
+			}
 
-		const decodedResumptionTokenResult = decodeRiverResumptionToken(
-			validatedParamsResult.data.resumeKey
-		);
+			const decodedResumptionTokenResult = decodeRiverResumptionToken(
+				validatedParamsResult.data.resumeKey
+			);
 
-		if (decodedResumptionTokenResult.isErr()) {
-			return error(400, decodedResumptionTokenResult.error);
-		}
+			if (decodedResumptionTokenResult.isErr()) {
+				return error(400, decodedResumptionTokenResult.error);
+			}
 
-		const { routerStreamKey } = decodedResumptionTokenResult.value;
+			const { routerStreamKey } = decodedResumptionTokenResult.value;
 
-		const stream = router[routerStreamKey];
+			const abortController = new AbortController();
 
-		if (!stream) {
-			const riverError = new RiverError('Stream not found', undefined, 'internal', {
-				routerStreamKey
+			event.request.signal.addEventListener('abort', () => {
+				abortController.abort();
 			});
-			return error(500, riverError);
-		}
 
-		if (!stream.provider.isResumable) {
-			const riverError = new RiverError('Stream is not resumable', undefined, 'internal', {
-				routerStreamKey
+			const resumeResult = await serverSideCaller[routerStreamKey].resume({
+				abortController,
+				resumeKey: validatedParamsResult.data.resumeKey
 			});
-			return error(500, riverError);
-		}
 
-		const abortController = new AbortController();
+			if (resumeResult.isErr()) {
+				return error(500, resumeResult.error);
+			}
 
-		event.request.signal.addEventListener('abort', () => {
-			abortController.abort();
-		});
+			return new Response(resumeResult.value);
+		},
+		POST: async (event) => {
+			const bodyResult = await ResultAsync.fromPromise(
+				event.request.json(),
+				(e) => new RiverError('Failed to parse request body', e, 'internal')
+			);
 
-		const resumedStream = await stream.provider.resumeStream({
-			abortController,
-			resumptionToken: decodedResumptionTokenResult.value
-		});
+			if (bodyResult.isErr()) {
+				return error(400, bodyResult.error);
+			}
 
-		if (resumedStream.isErr()) {
-			return error(500, resumedStream.error);
-		}
+			const decodedBodyResult = startRiverStreamBodySchema.safeParse(bodyResult.value);
 
-		return new Response(resumedStream.value);
-	},
-	POST: async (event) => {
-		const bodyResult = await ResultAsync.fromPromise(
-			event.request.json(),
-			(e) => new RiverError('Failed to parse request body', e, 'internal')
-		);
+			if (!decodedBodyResult.success) {
+				const riverError = new RiverError('Invalid request body', undefined, 'internal');
+				return error(400, riverError);
+			}
 
-		if (bodyResult.isErr()) {
-			return error(400, bodyResult.error);
-		}
+			const { routerStreamKey, input } = decodedBodyResult.data;
 
-		const decodedBodyResult = startRiverStreamBodySchema.safeParse(bodyResult.value);
+			const abortController = new AbortController();
 
-		if (!decodedBodyResult.success) {
-			const riverError = new RiverError('Invalid request body', undefined, 'internal');
-			return error(400, riverError);
-		}
-
-		const { routerStreamKey, input } = decodedBodyResult.data;
-
-		const stream = router[routerStreamKey];
-
-		if (!stream) {
-			const riverError = new RiverError('Stream not found', undefined, 'internal', {
-				routerStreamKey
+			event.request.signal.addEventListener('abort', () => {
+				abortController.abort();
 			});
-			return error(500, riverError);
-		}
 
-		const inputResult = stream.inputSchema.safeParse(input);
-
-		if (!inputResult.success) {
-			const riverError = new RiverError('Invalid input', undefined, 'internal', {
-				routerStreamKey
+			const startResult = await serverSideCaller[routerStreamKey].start({
+				abortController,
+				input: input as any,
+				adapterRequest: {
+					event
+				} as any
 			});
-			return error(400, riverError);
+
+			if (startResult.isErr()) {
+				return error(500, startResult.error);
+			}
+
+			const encoder = new TextEncoder();
+
+			const transformResult = startResult.value.pipeThrough(
+				new TransformStream({
+					transform(chunk, controller) {
+						let sseChunk: string;
+						try {
+							sseChunk = `data: ${JSON.stringify(chunk)}\n\n`;
+						} catch {
+							sseChunk = `data: ${chunk}\n\n`;
+						}
+						controller.enqueue(encoder.encode(sseChunk));
+					}
+				})
+			);
+
+			return new Response(transformResult);
 		}
-
-		const abortController = new AbortController();
-
-		event.request.signal.addEventListener('abort', () => {
-			abortController.abort();
-		});
-
-		const initStreamResult = await stream.provider.initStream({
-			abortController,
-			adapterRequest: {
-				event
-			},
-			routerStreamKey,
-			input: inputResult.data,
-			runnerFn: stream.runner
-		});
-
-		if (initStreamResult.isErr()) {
-			return error(500, initStreamResult.error);
-		}
-
-		return new Response(initStreamResult.value);
-	}
-});
+	};
+};
