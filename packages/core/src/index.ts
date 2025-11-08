@@ -2,6 +2,7 @@ export type {
 	DecoratedRiverRouter,
 	ClientSideCaller,
 	CallerAsyncIterable,
+	CallerStreamItems,
 	InferRiverStreamChunkType,
 	InferRiverStreamInputType,
 	RiverRouter,
@@ -9,7 +10,8 @@ export type {
 	RiverProvider,
 	RiverSpecialEndChunk,
 	RiverSpecialErrorChunk,
-	RiverSpecialStartChunk
+	RiverSpecialStartChunk,
+	RiverSpecialFatalErrorChunk
 } from './types';
 
 export { resumeRiverStreamParamsSchema, startRiverStreamBodySchema } from './schemas';

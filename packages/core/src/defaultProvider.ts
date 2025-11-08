@@ -83,11 +83,7 @@ export const defaultRiverProvider = (): RiverProvider<any, false> => ({
 
 					const errorSendResult = await safeSendChunk({ type: 'special', special: errorChunk });
 
-					if (errorSendResult.isErr()) {
-						return errorSendResult;
-					}
-
-					return ok(null);
+					return errorSendResult;
 				};
 
 				const sendFatalErrorAndClose = async (error: RiverError) => {
