@@ -49,6 +49,8 @@
 		"typescript": "^5",
 		"react": "^19.2.0",
 		"react-dom": "^19.2.0",
+		"@types/react": "^19.2.0",
+		"@types/react-dom": "^19.2.0",
 		"@davis7dotsh/river-core": "*",
 		"@tanstack/react-start": "^1.132.0",
 		"neverthrow": "^8.2.0",
