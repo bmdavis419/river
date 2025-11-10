@@ -1,0 +1,57 @@
+{
+	"name": "@davis7dotsh/river-adapter-tanstack",
+	"version": "0.2.0",
+	"description": "tanstack-start adapter for river",
+	"keywords": [
+		"river",
+		"tanstack-start",
+		"react",
+		"streaming",
+		"ai"
+	],
+	"publishConfig": {
+		"access": "public"
+	},
+	"author": "Ben Davis (https://davis7.sh)",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/bmdavis419/river",
+		"directory": "packages/adapter-tanstack"
+	},
+	"type": "module",
+	"main": "./dist/index.mjs",
+	"types": "./dist/index.d.mts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.mts",
+			"import": "./dist/index.mjs"
+		}
+	},
+	"files": [
+		"dist"
+	],
+	"scripts": {
+		"dev": "tsdown --watch ./src",
+		"build": "tsdown",
+		"publish": "npm publish",
+		"prepack": "bun run build",
+		"format": "prettier --write .",
+		"lint": "prettier --check ."
+	},
+	"devDependencies": {
+		"@davis7dotsh/river-ts-config": "*",
+		"@types/bun": "latest",
+		"tsdown": "^0.16.0",
+		"typescript": "^5.9.3"
+	},
+	"peerDependencies": {
+		"typescript": "^5",
+		"react": "^19.2.0",
+		"react-dom": "^19.2.0",
+		"@davis7dotsh/river-core": "*",
+		"@tanstack/react-start": "^1.132.0",
+		"neverthrow": "^8.2.0",
+		"zod": "^4.1.12"
+	}
+}

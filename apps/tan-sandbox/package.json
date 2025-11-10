@@ -1,0 +1,48 @@
+{
+	"name": "@davis7dotsh/river-tan-sandbox",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "bunx --bun vite dev --port 3000",
+		"build": "bunx --bun vite build",
+		"serve": "bunx --bun vite preview",
+		"test": "vitest run",
+		"format": "biome format",
+		"lint": "biome lint",
+		"check": "biome check"
+	},
+	"dependencies": {
+		"@davis7dotsh/river-adapter-tanstack": "*",
+		"@davis7dotsh/river-core": "*",
+		"@davis7dotsh/river-provider-redis": "*",
+		"@t3-oss/env-core": "^0.13.8",
+		"@tailwindcss/vite": "^4.0.6",
+		"@tanstack/react-devtools": "^0.7.0",
+		"@tanstack/react-router": "^1.132.0",
+		"@tanstack/react-router-devtools": "^1.132.0",
+		"@tanstack/react-router-ssr-query": "^1.131.7",
+		"@tanstack/react-start": "^1.132.0",
+		"@tanstack/router-plugin": "^1.132.0",
+		"lucide-react": "^0.544.0",
+		"react": "^19.2.0",
+		"react-dom": "^19.2.0",
+		"tailwindcss": "^4.0.6",
+		"vite-tsconfig-paths": "^5.1.4",
+		"zod": "^4.1.11"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.2.4",
+		"@testing-library/dom": "^10.4.0",
+		"@testing-library/react": "^16.2.0",
+		"@types/node": "^22.10.2",
+		"@types/react": "^19.2.0",
+		"@types/react-dom": "^19.2.0",
+		"@vitejs/plugin-react": "^5.0.4",
+		"babel-plugin-react-compiler": "^1.0.0",
+		"jsdom": "^27.0.0",
+		"typescript": "^5.7.2",
+		"vite": "^7.1.7",
+		"vitest": "^3.0.5",
+		"web-vitals": "^5.1.0"
+	}
+}
