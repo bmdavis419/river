@@ -9,10 +9,11 @@ export const remoteStartUnreliableStreamInBg = command(
 	}),
 	async ({ prompt }) => {
 		const event = getRequestEvent();
-		const bgStartResult = await myServerCaller.redisResume.startStreamInBackground({
+		const bgStartResult = await myServerCaller.redisResume.start({
 			input: {
 				prompt
 			},
+			abortController: new AbortController(),
 			adapterRequest: {
 				event
 			}
@@ -23,8 +24,19 @@ export const remoteStartUnreliableStreamInBg = command(
 			return error(500, bgStartResult.error);
 		}
 
+		let resumeKey: string | null = null;
+
+		for await (const chunk of bgStartResult.value) {
+			if (chunk.type === 'special') {
+				if (chunk.special.RIVER_SPECIAL_TYPE_KEY === 'stream_start') {
+					resumeKey = chunk.special.encodedResumptionToken ?? null;
+					break;
+				}
+			}
+		}
+
 		return {
-			resumeKey: bgStartResult.value.encodedResumptionToken
+			resumeKey
 		};
 	}
 );
@@ -34,8 +46,9 @@ export const remoteResumeUnreliableStream = command(
 		resumeKey: z.string()
 	}),
 	async ({ resumeKey }) => {
-		const streamResult = await myServerCaller.redisResume.resumeStream({
-			resumeKey
+		const streamResult = await myServerCaller.redisResume.resume({
+			resumeKey,
+			abortController: new AbortController()
 		});
 
 		if (streamResult.isErr()) {
@@ -71,10 +84,11 @@ export const remoteRunUnreliableStream = command(
 	}),
 	async ({ prompt }) => {
 		const event = getRequestEvent();
-		const streamResult = await myServerCaller.redisResume.startStreamAndConsume({
+		const streamResult = await myServerCaller.redisResume.start({
 			input: {
 				prompt
 			},
+			abortController: new AbortController(),
 			adapterRequest: {
 				event
 			}

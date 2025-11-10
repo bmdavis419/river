@@ -6,8 +6,7 @@ import type {
 	InferRiverStreamChunkType,
 	InferRiverStreamInputType,
 	MakeClientSideCaller,
-	RiverRouter,
-	RiverSpecialChunk
+	RiverRouter
 } from './types';
 import { RiverError } from './errors';
 
@@ -61,7 +60,7 @@ async function* internalConsumeToAsyncIterable(
 
 			if (rawData.includes('RIVER_SPECIAL_TYPE_KEY')) {
 				const parseResult = Result.fromThrowable(
-					() => JSON.parse(rawData) as RiverSpecialChunk,
+					() => JSON.parse(rawData) as CallerStreamItems<any>,
 					(error) => new RiverError('Failed to parse special chunk', error, 'internal')
 				)();
 
@@ -78,10 +77,13 @@ async function* internalConsumeToAsyncIterable(
 
 				const parsed = parseResult.value;
 
-				if (parsed.RIVER_SPECIAL_TYPE_KEY === 'stream_fatal_error') {
+				if (
+					parsed.type === 'special' &&
+					parsed.special.RIVER_SPECIAL_TYPE_KEY === 'stream_fatal_error'
+				) {
 					let riverError: RiverError;
 					try {
-						riverError = RiverError.fromJSON(parsed.error);
+						riverError = RiverError.fromJSON(parsed.special.error);
 					} catch {
 						riverError = new RiverError('Got a malformed error chunk', undefined, 'unknown', {
 							rawChunk: rawData
@@ -98,10 +100,10 @@ async function* internalConsumeToAsyncIterable(
 					break;
 				}
 
-				if (parsed.RIVER_SPECIAL_TYPE_KEY === 'stream_error') {
+				if (parsed.type === 'special' && parsed.special.RIVER_SPECIAL_TYPE_KEY === 'stream_error') {
 					let riverError: RiverError;
 					try {
-						riverError = RiverError.fromJSON(parsed.error);
+						riverError = RiverError.fromJSON(parsed.special.error);
 					} catch {
 						riverError = new RiverError('Got a malformed error chunk', undefined, 'unknown', {
 							rawChunk: rawData
@@ -117,10 +119,7 @@ async function* internalConsumeToAsyncIterable(
 					continue;
 				}
 
-				yield {
-					type: 'special',
-					special: parsed
-				};
+				yield parsed;
 
 				continue;
 			}

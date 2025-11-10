@@ -23,7 +23,6 @@ class SvelteKitRiverClientCaller<InputType, ChunkType>
 		let idx = 0;
 
 		for await (const streamItem of stream) {
-			console.log('Stream item received', streamItem);
 			switch (streamItem.type) {
 				case 'chunk':
 					await this.lifeCycleCallbacks.onChunk?.(streamItem.chunk as ChunkType, idx);

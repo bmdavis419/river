@@ -49,7 +49,24 @@ export const riverEndpointHandler: SvelteKitRiverEndpointHandler = (router) => {
 				return error(500, resumeResult.error);
 			}
 
-			return new Response(resumeResult.value);
+			const encoder = new TextEncoder();
+
+			const transformResult = resumeResult.value.pipeThrough(
+				new TransformStream({
+					transform(chunk, controller) {
+						console.log('TRANSFORMING CHUNK', chunk);
+						let sseChunk: string;
+						try {
+							sseChunk = `data: ${JSON.stringify(chunk)}\n\n`;
+						} catch {
+							sseChunk = `data: ${chunk}\n\n`;
+						}
+						controller.enqueue(encoder.encode(sseChunk));
+					}
+				})
+			);
+
+			return new Response(transformResult);
 		},
 		POST: async (event) => {
 			const bodyResult = await ResultAsync.fromPromise(

@@ -6,13 +6,16 @@ import {
 	type RiverSpecialErrorChunk,
 	type RiverSpecialStartChunk,
 	type RiverSpecialEndChunk,
-	createAsyncIterableStream,
-	type RiverSpecialChunk
+	createAsyncIterableStream
 } from '@davis7dotsh/river-core';
 import type Redis from 'ioredis';
 import { err, ok, Result, ResultAsync } from 'neverthrow';
 
 // TODO: the resuming logic is pretty fucked up right now, the chunk format needs to be fixed
+
+// how to make redis actually work:
+// - chunks have to be sent in as strings (they are saved as strings in redis with the key "item")
+// - need a special "end" chunk (not a river special chunk, but a redis one) that hits whenever errors or ends happen (saved as string with key "end")
 
 const REDIS_PROVIDER_ID = 'redis';
 
@@ -38,38 +41,39 @@ export const redisProvider = (args: {
 					streamRunId: resumptionToken.streamRunId
 				});
 
-				const safeSendChunk = async (data: CallerStreamItems<any>) => {
+				const appendItemFromRedis = async (item: string) => {
 					if (abortController.signal.aborted || wasClosed) {
 						return err(new RiverError('Stream was aborted', undefined, 'stream'));
 					}
 					return Result.fromThrowable(
 						() => {
-							controller.enqueue(data);
+							const chunk = JSON.parse(item) as CallerStreamItems<any>;
+							controller.enqueue(chunk);
 							return null;
 						},
 						(error) => {
-							return new RiverError('Failed to send chunk', error, 'stream');
+							return new RiverError('Failed to parse and send item', error, 'stream');
 						}
 					)();
 				};
 
-				const appendChunk = async (chunk: unknown) => {
-					return safeSendChunk({ type: 'chunk', chunk });
-				};
-
-				const appendSpecial = async (special: RiverSpecialChunk) => {
-					return safeSendChunk({ type: 'special', special });
-				};
-
 				const appendError = async (error: RiverError) => {
-					const errorChunk: RiverSpecialErrorChunk = {
-						RIVER_SPECIAL_TYPE_KEY: 'stream_error',
-						error
-					};
-
-					const errorSendResult = await safeSendChunk({ type: 'special', special: errorChunk });
-
-					return errorSendResult;
+					if (abortController.signal.aborted || wasClosed) {
+						return err(new RiverError('Stream was aborted', undefined, 'stream'));
+					}
+					return Result.fromThrowable(
+						() => {
+							const errorChunk: RiverSpecialErrorChunk = {
+								RIVER_SPECIAL_TYPE_KEY: 'stream_error',
+								error
+							};
+							controller.enqueue({ type: 'special', special: errorChunk });
+							return null;
+						},
+						(error) => {
+							return new RiverError('Failed to send error', error, 'stream');
+						}
+					)();
 				};
 
 				let totalTriesToSend = 0;
@@ -111,15 +115,10 @@ export const redisProvider = (args: {
 						const [type, data] = fields;
 
 						if (type === 'item' && data) {
-							if (data.includes('RIVER_SPECIAL_TYPE_KEY')) {
-								await appendSpecial(JSON.parse(data));
-								if (data.includes('stream_end')) {
-									wasClosed = true;
-									break;
-								}
-							} else {
-								await appendChunk(JSON.parse(data));
-							}
+							appendItemFromRedis(data);
+						} else if (type === 'end') {
+							wasClosed = true;
+							break;
 						}
 
 						lastId = id;
@@ -187,6 +186,13 @@ export const redisProvider = (args: {
 			).map(() => null);
 		};
 
+		const safeSendEndChunk = async () => {
+			return await ResultAsync.fromPromise(
+				redisClient.xadd(redisStreamKey, '*', 'end', 'STREAM_END'),
+				(error) => new RiverError('Failed to send chunk to Redis', error, 'stream')
+			).map(() => null);
+		};
+
 		const startChunk: RiverSpecialStartChunk = {
 			RIVER_SPECIAL_TYPE_KEY: 'stream_start',
 			streamRunId,
@@ -214,6 +220,8 @@ export const redisProvider = (args: {
 				type: 'special',
 				special: fatalErrorChunk
 			});
+
+			await safeSendEndChunk();
 
 			if (!wasClosed && !abortController.signal.aborted) {
 				wasClosed = true;
@@ -245,6 +253,8 @@ export const redisProvider = (args: {
 			};
 
 			const closeSendResult = await safeSendChunk({ type: 'special', special: endChunk });
+
+			await safeSendEndChunk();
 
 			if (!abortController.signal.aborted && !wasClosed) {
 				wasClosed = true;
