@@ -16,7 +16,8 @@
 		"publish:all": "turbo run publish",
 		"publish:redis": "turbo run --filter=@davis7dotsh/river-provider-redis publish",
 		"publish:core": "turbo run --filter=@davis7dotsh/river-core publish",
-		"publish:svelte": "turbo run --filter=@davis7dotsh/river-adapter-sveltekit publish"
+		"publish:svelte": "turbo run --filter=@davis7dotsh/river-adapter-sveltekit publish",
+		"publish:tanstack": "turbo run --filter=@davis7dotsh/river-adapter-tanstack publish"
 	},
 	"devDependencies": {
 		"prettier": "^3.6.2",
