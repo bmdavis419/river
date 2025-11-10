@@ -1,6 +1,6 @@
 {
 	"name": "@davis7dotsh/river-adapter-sveltekit",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"description": "sveltekit adapter for river",
 	"keywords": [
 		"river",

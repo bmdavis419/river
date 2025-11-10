@@ -54,7 +54,6 @@ export const riverEndpointHandler: SvelteKitRiverEndpointHandler = (router) => {
 			const transformResult = resumeResult.value.pipeThrough(
 				new TransformStream({
 					transform(chunk, controller) {
-						console.log('TRANSFORMING CHUNK', chunk);
 						let sseChunk: string;
 						try {
 							sseChunk = `data: ${JSON.stringify(chunk)}\n\n`;

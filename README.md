@@ -12,23 +12,23 @@ _an experiment by <a href="https://davis7.sh" target="_blank">ben davis</a> that
 	const { start, stop, resume } = myRiverClient.aRiverStream({
 		onChunk: (chunk) => {
 			// fully type safe!
-			console.log(chunk)
+			console.log('Chunk received', chunk);
 		},
 		onStart: () => {
-			allChunks = [];
+			console.log('Starting stream');
 		},
-		onEnd: () => {
-			console.log("stream ended")
+		onSuccess: (data) => {
+			console.log('Finished first stream', data.totalChunks, data.totalTimeMs);
 		},
 		onError: (error) => {
+			console.warn(error);
+		},
+		onFatalError: (error) => {
 			console.error(error);
 		},
 		onAbort: () => {
 			console.log('Aborted stream');
 		},
-		onStreamInfo: ({ encodedResumptionToken }) => {
-			console.log("resume with:", encodedResumptionToken)
-		}
 	});
 </script>
 ```
@@ -304,13 +304,13 @@ body {
 			answer = '';
 			wasImposer = false;
 		},
-		onEnd: () => {
+		onSuccess: (data) => {
 			console.log('stream ended');
 		},
 		onError: (error) => {
 			console.error('stream error', error);
 		},
-		onStreamInfo: (info) => {
+		onInfo: (info) => {
 			if (info.encodedResumptionToken) {
 				params.resumeKey = info.encodedResumptionToken;
 			}
@@ -415,7 +415,7 @@ export const remoteStartUnreliableStreamInBg = command(
 	}),
 	async ({ prompt }) => {
 		const event = getRequestEvent();
-		const bgStartResult = await myServerCaller.redisResume.startStreamInBackground({
+		const bgStartResult = await myServerCaller.redisResume.start({
 			input: {
 				prompt
 			},
@@ -450,7 +450,7 @@ export const remoteResumeUnreliableStream = command(
 		resumeKey: z.string()
 	}),
 	async ({ resumeKey }) => {
-		const streamResult = await myServerCaller.redisResume.resumeStream({
+		const streamResult = await myServerCaller.redisResume.resume({
 			resumeKey
 		});
 
@@ -497,7 +497,7 @@ export const remoteRunUnreliableStream = command(
 	}),
 	async ({ prompt }) => {
 		const event = getRequestEvent();
-		const streamResult = await myServerCaller.redisResume.startStreamAndConsume({
+		const streamResult = await myServerCaller.redisResume.start({
 			input: {
 				prompt
 			},

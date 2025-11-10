@@ -152,13 +152,13 @@ export type CallerAsyncIterable<ChunkType> = AsyncIterable<CallerStreamItems<Chu
 type AsyncIterableStream<T> = ReadableStream<T> & AsyncIterable<T>;
 
 type ServerSideStartCaller<InputType, ChunkType, AdapterRequestType> = (args: {
-	abortController: AbortController;
+	abortController?: AbortController;
 	input: InputType;
 	adapterRequest: AdapterRequestType;
 }) => Promise<Result<AsyncIterableStream<CallerStreamItems<ChunkType>>, RiverError>>;
 
 type ServerSideResumeCaller<ChunkType> = (args: {
-	abortController: AbortController;
+	abortController?: AbortController;
 	resumeKey: string;
 }) => Promise<Result<AsyncIterableStream<CallerStreamItems<ChunkType>>, RiverError>>;
 

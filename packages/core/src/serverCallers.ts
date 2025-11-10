@@ -22,6 +22,7 @@ export const createServerSideCaller = <T extends RiverRouter>(router: T): Server
 		> {
 			return {
 				start: async ({ abortController, input, adapterRequest }) => {
+					abortController = abortController ?? new AbortController();
 					const stream = router[routerStreamKey];
 
 					if (!stream) {
@@ -41,6 +42,7 @@ export const createServerSideCaller = <T extends RiverRouter>(router: T): Server
 					});
 				},
 				resume: async ({ abortController, resumeKey }) => {
+					abortController = abortController ?? new AbortController();
 					const stream = router[routerStreamKey];
 
 					const decodedResumptionTokenResult = decodeRiverResumptionToken(resumeKey);

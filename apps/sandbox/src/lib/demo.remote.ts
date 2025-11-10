@@ -13,7 +13,6 @@ export const remoteStartUnreliableStreamInBg = command(
 			input: {
 				prompt
 			},
-			abortController: new AbortController(),
 			adapterRequest: {
 				event
 			}
@@ -47,8 +46,7 @@ export const remoteResumeUnreliableStream = command(
 	}),
 	async ({ resumeKey }) => {
 		const streamResult = await myServerCaller.redisResume.resume({
-			resumeKey,
-			abortController: new AbortController()
+			resumeKey
 		});
 
 		if (streamResult.isErr()) {
@@ -88,7 +86,6 @@ export const remoteRunUnreliableStream = command(
 			input: {
 				prompt
 			},
-			abortController: new AbortController(),
 			adapterRequest: {
 				event
 			}
