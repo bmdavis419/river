@@ -12,7 +12,7 @@ export const riverEndpointHandler: TanStackStartRiverEndpointHandler = (router) 
 	const serverSideCaller = createServerSideCaller(router);
 	return {
 		GET: async (event) => {
-			const searchParams = new URLSearchParams(event.request.url);
+			const searchParams = new URLSearchParams(event.request.url.split('?')[1]);
 
 			const validatedParamsResult = resumeRiverStreamParamsSchema.safeParse(
 				Object.fromEntries(searchParams)

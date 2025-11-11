@@ -1,6 +1,6 @@
 {
 	"name": "@davis7dotsh/river-adapter-tanstack",
-	"version": "0.2.0",
+	"version": "0.2.1",
 	"description": "tanstack-start adapter for river",
 	"keywords": [
 		"river",
