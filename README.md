@@ -82,9 +82,10 @@ for now just use the below getting started guides and check out the examples for
 ## examples
 
 you can find examples for how to use river in "real world" projects here:
+
 _each one includes guides on running it locally and how to deploy it_
 
-- [sveltekit river demo](https://github.com/bmdavis419/redis-river-demo)
+- [sveltekit river demo](https://github.com/bmdavis419/river-sveltekit-demo)
 - [tanstack start demo](https://github.com/bmdavis419/river-tanstack-start-demo)
 
 ## tanstack start getting started
