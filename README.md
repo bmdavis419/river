@@ -440,7 +440,7 @@ export type MyRiverRouter = typeof myRiverRouter;
 ```ts
 // src/routes/api/river/index.ts
 import { riverEndpointHandler } from '@davis7dotsh/river-adapter-sveltekit';
-import { myRiverRouter } from '@/lib/river/router';
+import { myRiverRouter } from '$lib/river/router';
 
 export const { GET, POST } = riverEndpointHandler(myRiverRouter);
 ```
