@@ -92,7 +92,13 @@ _each one includes guides on running it locally and how to deploy it_
 
 this is a basic example of a custom stream that will count the number of vowels, consonants, and special characters in a message (it's contrived I know, but hear me out...):
 
-0. init a tanstack start project `bun create @tanstack/start@latest` and then delete basically everything in the routes directory other than the `index.tsx` file and `__root.tsx` file
+0. init a tanstack start project
+
+```bash
+bun create @tanstack/start@latest
+```
+
+then delete basically everything in the routes directory other than the `index.tsx` file and `__root.tsx` file
 
 1. install the dependencies
 
@@ -347,7 +353,15 @@ const BasicDemo = () => {
 
 this is a basic example of a custom stream that will count the number of vowels, consonants, and special characters in a message (it's contrived I know, but hear me out...):
 
-0. init a new sveltekit project `bunx sv create` (select tailwindcss, prettier, and then anything else you want) make sure you pick minimal and typescript
+0. init a new sveltekit project
+
+```bash
+bunx sv create
+```
+
+make sure you pick minimal and typescript
+
+(select tailwindcss, prettier, and then anything else you want)
 
 1. install the dependencies
 
