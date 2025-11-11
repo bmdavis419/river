@@ -10,6 +10,9 @@
 		"publish": {
 			"cache": false
 		},
+		"deploy": {
+			"cache": false
+		},
 		"start": {
 			"dependsOn": ["^start"]
 		},
